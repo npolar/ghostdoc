@@ -185,7 +185,7 @@ func (p *Parser) parsable(file string) bool {
 	return !p.isConfiguration(file) && p.supportedFormat(file)
 }
 
-// @TODO test behavior for with relative paths
+// @TODO test behavior for relative paths
 // isConfiguration returns true if the file read matches one of the
 // files specified with a configuration flag on the commandline
 func (p *Parser) isConfiguration(file string) bool {
