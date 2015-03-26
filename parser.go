@@ -76,10 +76,10 @@ func (p *Parser) globDir(dir string) {
 
 	for _, entry := range entries {
 		if p.Cli.Bool("recursive") && entry.IsDir() {
-			p.globDir(entry.Name())
+			p.globDir(path + "/" + entry.Name())
 		} else {
 			if fname := entry.Name(); p.parsable(fname) {
-				p.parseFile(fname)
+				p.parseFile(path + "/" + fname)
 			}
 		}
 	}
