@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -23,14 +24,16 @@ const (
 type Parser struct {
 	Cli         *cli.Context
 	DataChannel chan interface{}
+	WaitGroup   *sync.WaitGroup
 	Input       []string
 }
 
 // NewParser initializes the Parser struct and passes a pointer to the caller
-func NewParser(c *cli.Context, dc chan interface{}) *Parser {
+func NewParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Parser {
 	return &Parser{
 		Cli:         c,
 		DataChannel: dc,
+		WaitGroup:   wg,
 		Input:       c.Args(), // Load the commandline arguments
 	}
 }
@@ -106,14 +109,19 @@ func (p *Parser) parseFile(fname string) {
 // and turns it into json using the payload key. the resulting interface is
 // pushed onto the DataChannel for further processing
 func (p *Parser) parseText(data []byte, fname string) error {
-	var textMap = make(map[string]interface{})
+	var dataMap = make(map[string]interface{})
+	var textIface interface{}
 
 	text := p.replaceNewLines(data, " ")
-	textMap[p.Cli.String("payload-key")] = strings.TrimSpace(string(text))
+	dataMap[p.Cli.String("text-key")] = strings.TrimSpace(string(text))
+	textIface = dataMap
 
-	err := p.parseFileName(fname, &textMap)
+	textIface, err := p.parseFileName(fname, textIface)
 
-	p.DataChannel <- textMap
+	go func(d interface{}) {
+		p.DataChannel <- d
+	}(textIface)
+	p.WaitGroup.Add(1)
 
 	return err
 }
@@ -125,9 +133,13 @@ func (p *Parser) parseJson(data []byte, fname string) error {
 	err := json.Unmarshal(data, &jsonData)
 
 	if err == nil {
-		err = p.parseFileName(fname, &jsonData)
+		jsonData, err = p.parseFileName(fname, jsonData)
 
-		p.DataChannel <- jsonData
+		go func(d interface{}) {
+			p.DataChannel <- d
+		}(jsonData)
+
+		p.WaitGroup.Add(1)
 	}
 
 	return err
@@ -142,9 +154,13 @@ func (p *Parser) parseCsv(data []byte, fname string) error {
 	if err == nil {
 		// push the docs onto the data channel
 		for _, doc := range docs {
-			err = p.parseFileName(fname, &doc)
+			doc, err = p.parseFileName(fname, doc)
 
-			p.DataChannel <- doc
+			go func(d interface{}) {
+				p.DataChannel <- d
+			}(doc)
+
+			p.WaitGroup.Add(1)
 		}
 	}
 
@@ -153,18 +169,19 @@ func (p *Parser) parseCsv(data []byte, fname string) error {
 
 // parseFilename handles meta data extraction from filenames. It reads the pattern
 // file specified with the --name-pattern argument and parses the filename according
-func (p *Parser) parseFileName(fname string, doc interface{}) error {
+func (p *Parser) parseFileName(fname string, doc interface{}) (interface{}, error) {
 	var err error
 
-	if p.Cli.String("name-pattern") != "" {
+	if pat := p.Cli.String("name-pattern"); pat != "" {
 		var pattern = make(map[string]interface{})
 
-		pdoc, err := ioutil.ReadFile(p.Cli.String("name-pattern"))
+		pdoc, err := ioutil.ReadFile(pat)
 		err = json.Unmarshal(pdoc, &pattern)
 
 		if err == nil {
-			if regex := regexp.MustCompile(pattern["pattern"].(string)); regex.MatchString(fname) {
-				matches := regex.FindStringSubmatch(fname)
+			if pRgx := regexp.MustCompile(pattern["pattern"].(string)); pRgx.MatchString(fname) {
+				matches := pRgx.FindStringSubmatch(fname)
+				log.Println(matches)
 				output := pattern["output"].(string)
 
 				// Replace the %<count> indicators in the output with the matching capture
@@ -178,7 +195,7 @@ func (p *Parser) parseFileName(fname string, doc interface{}) error {
 		}
 	}
 
-	return err
+	return doc, err
 }
 
 func (p *Parser) parsable(file string) bool {
