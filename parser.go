@@ -78,8 +78,8 @@ func (p *Parser) globDir(dir string) {
 		if p.Cli.Bool("recursive") && entry.IsDir() {
 			p.globDir(path + "/" + entry.Name())
 		} else {
-			if fname := entry.Name(); p.parsable(fname) {
-				p.parseFile(path + "/" + fname)
+			if fname := path + "/" + entry.Name(); p.parsable(fname) {
+				p.parseFile(fname)
 			}
 		}
 	}
@@ -206,8 +206,13 @@ func (p *Parser) parsable(file string) bool {
 // isConfiguration returns true if the file read matches one of the
 // files specified with a configuration flag on the commandline
 func (p *Parser) isConfiguration(file string) bool {
+	keyFile, _ := filepath.Abs(p.Cli.String("key-map"))
+	mergeFile, _ := filepath.Abs(p.Cli.String("merge"))
+	patternFile, _ := filepath.Abs(p.Cli.String("name-pattern"))
+	wrapperFile, _ := filepath.Abs(p.Cli.String("wrapper"))
+
 	switch file {
-	case p.Cli.String("key-map"), p.Cli.String("merge"), p.Cli.String("name-pattern"), p.Cli.String("wrapper"):
+	case keyFile, mergeFile, patternFile, wrapperFile:
 		return true
 	default:
 		return false
