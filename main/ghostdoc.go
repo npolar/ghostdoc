@@ -2,7 +2,10 @@ package main
 
 import (
 	"github.com/codegangsta/cli"
+	"github.com/npolar/ghostdoc"
+	"log"
 	"os"
+	"sync"
 )
 
 func main() {
@@ -41,7 +44,7 @@ func ConfigureFlags() []cli.Flag {
 			Usage: "Set the input format [json|csv|txt]",
 		},
 		cli.StringFlag{
-			Name:  "http-verb, h",
+			Name:  "http-verb",
 			Value: "POST",
 			Usage: "Set the http verb to use [POST|PUT]",
 		},
@@ -58,8 +61,8 @@ func ConfigureFlags() []cli.Flag {
 			Usage: "Set pattern file to extract filename info and inject it into the result",
 		},
 		cli.StringFlag{
-			Name:  "output-folder, o",
-			Usage: "Set dir to write output files",
+			Name:  "output, o",
+			Usage: "Set dir output dir. Files will get uuid as name",
 		},
 		cli.StringFlag{
 			Name:  "payload-key, p",
@@ -67,8 +70,13 @@ func ConfigureFlags() []cli.Flag {
 			Usage: "Specify the key to use for the payload when wrapping",
 		},
 		cli.StringFlag{
+			Name:  "text-key, t",
+			Value: "text",
+			Usage: "Specify the key to use for the payload when wrapping",
+		},
+		cli.BoolFlag{
 			Name:  "uuid, u",
-			Usage: "Set namespaced uuid generation. uuid's will be injected with the 'id' key [full|wrap]",
+			Usage: "Injects a namesaced uuid with the 'id' key",
 		},
 		cli.StringFlag{
 			Name:  "wrapper, w",
@@ -84,20 +92,19 @@ func ConfigureFlags() []cli.Flag {
 func ProcessDocs(c *cli.Context) {
 	// Create a buffered interface channel
 	var dataChan = make(chan interface{}, c.Int("concurrency"))
+	wg := &sync.WaitGroup{}
 
 	// Setup a new parser and pass the cli context and the dataChannel
-	parser, err := NewParser(c, &dataChan)
+	parser := ghostdoc.NewParser(c, dataChan, wg)
+	// Parse all the files and push them on the channel
+	parser.Parse()
 
-	// Start a reader loop that reads data as quickly as possible and processes it in parallel
-
-	// Parse all the input and dump the results
-	contents, err := parser.Parse()
-
-	// Start a writer loop that writes data as quickly as it comes available on the channel.
-	// Should never exceed more then the concurrency configured. If write is slow this might
-	// Increase memory consumption.
-
-	// Generate output and write it to the api
-	writer, err := NewWriter(c)
-	writer.Write(contents)
+	// Grabs contents from the channel and write the final file format
+	writer := ghostdoc.NewWriter(c, dataChan, wg)
+	if err := writer.Write(); err != nil {
+		log.Println(err.Error())
+	}
+	// Wait for all go routines to finish before exiting
+	wg.Wait()
+	//close(dataChan)
 }
