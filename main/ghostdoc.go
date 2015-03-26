@@ -83,7 +83,7 @@ func ConfigureFlags() []cli.Flag {
 			Usage: "Define wrapper a wrapper for the payload",
 		},
 		cli.BoolFlag{
-			Name:  "recusrive, r",
+			Name:  "recursive, r",
 			Usage: "Recursive read mode. also process sub-dirs",
 		},
 	}
