@@ -2,9 +2,7 @@ package ghostdoc
 
 import (
 	"bytes"
-	"code.google.com/p/go-uuid/uuid"
 	"encoding/json"
-	"github.com/codegangsta/cli"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,7 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
+
+	"code.google.com/p/go-uuid/uuid"
+	"github.com/codegangsta/cli"
 )
 
 const (
@@ -42,6 +44,7 @@ func (w *Writer) Write() error {
 		for {
 			data := <-w.DataChannel
 
+			data, err = w.excludeKeys(data)
 			data, err = w.mapKeys(data)
 			data, err = w.mergeData(data)
 			data, err = w.wrapData(data)
@@ -56,6 +59,19 @@ func (w *Writer) Write() error {
 	}()
 
 	return err
+}
+
+func (w *Writer) excludeKeys(data interface{}) (interface{}, error) {
+	var err error
+
+	if excludes := w.Cli.String("exclude"); excludes != "" {
+		excludesSlice := strings.Split(excludes, ",")
+		for _, key := range excludesSlice {
+			delete(data.(map[string]interface{}), key)
+		}
+	}
+
+	return data, err
 }
 
 func (w *Writer) mapKeys(data interface{}) (interface{}, error) {

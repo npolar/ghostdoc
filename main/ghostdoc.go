@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/codegangsta/cli"
-	"github.com/npolar/ghostdoc"
 	"log"
 	"os"
 	"sync"
+
+	"github.com/codegangsta/cli"
+	"github.com/npolar/ghostdoc"
 )
 
 func main() {
@@ -37,6 +38,11 @@ func ConfigureFlags() []cli.Flag {
 			Name:  "delimiter, d",
 			Value: ",",
 			Usage: "Set the demlimiter for working with csv data",
+		},
+		cli.StringFlag{
+			Name:  "exclude, e",
+			Value: "",
+			Usage: "Specify keys (before mapping) to exclude from the output",
 		},
 		cli.StringFlag{
 			Name:  "format, f",
