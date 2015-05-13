@@ -3,7 +3,6 @@ package ghostdoc
 import (
 	"encoding/json"
 	"github.com/codegangsta/cli"
-	"github.com/npolar/ciface"
 	"io/ioutil"
 	"log"
 	"os"
@@ -17,7 +16,6 @@ import (
 const (
 	textFileRegex = `(?i)^.+\.txt$`
 	jsonFileRegex = `(?i)^.+\.json|geojson|topojson$`
-	csvFileRegex  = `(?i)^.+\.csv|tsv|txt`
 	newlineRegex  = `\n|\r\n|\n\r$`
 )
 
@@ -94,8 +92,6 @@ func (p *Parser) parseFile(fname string) {
 		p.parseText(raw, fname)
 	case p.isJson(fname):
 		err = p.parseJson(raw, fname)
-	case p.isCsv(fname):
-		err = p.parseCsv(raw, fname)
 	default:
 		log.Println("Unsupported file type")
 	}
@@ -140,28 +136,6 @@ func (p *Parser) parseJson(data []byte, fname string) error {
 		}(jsonData)
 
 		p.WaitGroup.Add(1)
-	}
-
-	return err
-}
-
-// parseCsv reads  csv data into a []interface{} using github.com/npolar/ciface.
-// Each interface{} is then pushed onto the data channel for processing
-func (p *Parser) parseCsv(data []byte, fname string) error {
-	cif := ciface.NewParser(data)
-	docs, err := cif.Parse()
-
-	if err == nil {
-		// push the docs onto the data channel
-		for _, doc := range docs {
-			doc, err = p.parseFileName(fname, doc)
-
-			go func(d interface{}) {
-				p.DataChannel <- d
-			}(doc)
-
-			p.WaitGroup.Add(1)
-		}
 	}
 
 	return err
@@ -221,7 +195,7 @@ func (p *Parser) isConfiguration(file string) bool {
 
 // supportedFormat returns a true if the input and format type match
 func (p *Parser) supportedFormat(file string) bool {
-	return p.isText(file) || p.isJson(file) || p.isCsv(file)
+	return p.isText(file) || p.isJson(file)
 }
 
 // isText returns true when a supported text flavor is provided && input format = text
@@ -234,12 +208,6 @@ func (p *Parser) isText(file string) bool {
 func (p *Parser) isJson(file string) bool {
 	json := regexp.MustCompile(jsonFileRegex)
 	return p.Cli.String("format") == "json" && json.MatchString(file)
-}
-
-// isCsv returns true when a supported csv flavor is detected && input format = csv
-func (p *Parser) isCsv(file string) bool {
-	csv := regexp.MustCompile(csvFileRegex)
-	return p.Cli.String("format") == "csv" && csv.MatchString(file)
 }
 
 func (p *Parser) replaceNewLines(data []byte, replacement string) []byte {
