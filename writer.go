@@ -21,12 +21,14 @@ const (
 	jsonRegex = `^\{\".+\"\:.+\}$`
 )
 
+// Writer type definition
 type Writer struct {
 	Cli         *cli.Context
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
 }
 
+// NewWriter initialises a new Writer and return a pointer to it
 func NewWriter(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Writer {
 	return &Writer{
 		Cli:         c,
@@ -49,7 +51,7 @@ func (w *Writer) Write() error {
 			dataMap, err = w.mapKeys(dataMap)
 			dataMap, err = w.mergeData(dataMap)
 			dataMap, err = w.wrapData(dataMap)
-			dataMap, err = w.injectUuid(dataMap)
+			dataMap, err = w.injectUUID(dataMap)
 
 			if err == nil {
 				err = w.publishData(dataMap)
@@ -126,12 +128,12 @@ func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{},
 	return data, err
 }
 
-func (w *Writer) injectUuid(data map[string]interface{}) (map[string]interface{}, error) {
+func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
 	if w.Cli.Bool("uuid") {
 		if doc, jsonError := json.Marshal(data); jsonError == nil {
-			data["id"] = w.generateUuid(doc)
+			data["id"] = w.generateUUID(doc)
 		} else {
 			err = jsonError
 		}
@@ -140,7 +142,7 @@ func (w *Writer) injectUuid(data map[string]interface{}) (map[string]interface{}
 	return data, err
 }
 
-func (w *Writer) generateUuid(input []byte) string {
+func (w *Writer) generateUUID(input []byte) string {
 	id := uuid.NewSHA1(uuid.NameSpace_DNS, input)
 	return id.String()
 }
@@ -171,7 +173,7 @@ func (w *Writer) publishData(data map[string]interface{}) error {
 		if data["id"] != nil {
 			id = data["id"].(string)
 		} else {
-			id = w.generateUuid(doc)
+			id = w.generateUUID(doc)
 		}
 
 		log.Println(id, string(doc))
@@ -234,13 +236,13 @@ func (w *Writer) readData(input string) (map[string]interface{}, error) {
 	if w.jsonInput(input) {
 		err = json.Unmarshal([]byte(input), &data)
 	} else {
-		err = w.parseJsonFile(input, &data)
+		err = w.parseJSONFile(input, &data)
 	}
 
 	return data, err
 }
 
-func (w *Writer) parseJsonFile(file string, data *map[string]interface{}) error {
+func (w *Writer) parseJSONFile(file string, data *map[string]interface{}) error {
 	raw, err := ioutil.ReadFile(file)
 
 	if err == nil {
