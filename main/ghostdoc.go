@@ -83,7 +83,7 @@ func configureFlags() []cli.Flag {
 
 func defineCommands() []cli.Command {
 	return []cli.Command{
-		ghostdoc.DsvCommand(),
+		ghostdoc.CsvCommand(),
 		ghostdoc.JsonCommand(),
 		ghostdoc.TextCommand(),
 	}
