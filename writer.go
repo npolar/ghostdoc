@@ -43,15 +43,16 @@ func (w *Writer) Write() error {
 	go func() {
 		for {
 			data := <-w.DataChannel
+			dataMap := data.(map[string]interface{})
 
-			data, err = w.excludeKeys(data)
-			data, err = w.mapKeys(data)
-			data, err = w.mergeData(data)
-			data, err = w.wrapData(data)
-			data, err = w.injectUuid(data)
+			dataMap, err = w.excludeKeys(dataMap)
+			dataMap, err = w.mapKeys(dataMap)
+			dataMap, err = w.mergeData(dataMap)
+			dataMap, err = w.wrapData(dataMap)
+			dataMap, err = w.injectUuid(dataMap)
 
 			if err == nil {
-				err = w.publishData(data)
+				err = w.publishData(dataMap)
 			}
 
 			w.WaitGroup.Done()
@@ -61,22 +62,22 @@ func (w *Writer) Write() error {
 	return err
 }
 
-func (w *Writer) excludeKeys(data interface{}) (interface{}, error) {
+func (w *Writer) excludeKeys(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
 	if excludes := w.Cli.String("exclude"); excludes != "" {
 		excludesSlice := strings.Split(excludes, ",")
 		for _, key := range excludesSlice {
-			delete(data.(map[string]interface{}), key)
+			delete(data, key)
 		}
 	}
 
 	return data, err
 }
 
-func (w *Writer) mapKeys(data interface{}) (interface{}, error) {
+func (w *Writer) mapKeys(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
-	dataMap := data.(map[string]interface{})
+	dataMap := data
 
 	if keyMap := w.Cli.String("key-map"); keyMap != "" {
 		if mapping, mapErr := w.readData(keyMap); mapErr == nil {
@@ -92,7 +93,7 @@ func (w *Writer) mapKeys(data interface{}) (interface{}, error) {
 	return dataMap, err
 }
 
-func (w *Writer) wrapData(data interface{}) (interface{}, error) {
+func (w *Writer) wrapData(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
 	if wrap := w.Cli.String("wrapper"); wrap != "" {
@@ -108,14 +109,14 @@ func (w *Writer) wrapData(data interface{}) (interface{}, error) {
 	return data, err
 }
 
-func (w *Writer) mergeData(data interface{}) (interface{}, error) {
+func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
 	if merge := w.Cli.String("merge"); merge != "" {
 		if padding, dataError := w.readData(merge); dataError == nil {
 
 			for key, val := range padding {
-				data.(map[string]interface{})[key] = val
+				data[key] = val
 			}
 		} else {
 			err = dataError
@@ -125,12 +126,12 @@ func (w *Writer) mergeData(data interface{}) (interface{}, error) {
 	return data, err
 }
 
-func (w *Writer) injectUuid(data interface{}) (interface{}, error) {
+func (w *Writer) injectUuid(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
 	if w.Cli.Bool("uuid") {
 		if doc, jsonError := json.Marshal(data); jsonError == nil {
-			data.(map[string]interface{})["id"] = w.generateUuid(doc)
+			data["id"] = w.generateUuid(doc)
 		} else {
 			err = jsonError
 		}
@@ -162,13 +163,13 @@ func (w *Writer) createOutputDir() error {
 
 // publishData grabs/generates the id of the data and converts it to a json
 // document. Afterwards it calls writeFile and httpRequest methods
-func (w *Writer) publishData(data interface{}) error {
+func (w *Writer) publishData(data map[string]interface{}) error {
 	var err error
 	var id string
 
 	if doc, jsonErr := json.MarshalIndent(data, "", "  "); jsonErr == nil {
-		if data.(map[string]interface{})["id"] != nil {
-			id = data.(map[string]interface{})["id"].(string)
+		if data["id"] != nil {
+			id = data["id"].(string)
 		} else {
 			id = w.generateUuid(doc)
 		}
@@ -239,7 +240,7 @@ func (w *Writer) readData(input string) (map[string]interface{}, error) {
 	return data, err
 }
 
-func (w *Writer) parseJsonFile(file string, data interface{}) error {
+func (w *Writer) parseJsonFile(file string, data *map[string]interface{}) error {
 	raw, err := ioutil.ReadFile(file)
 
 	if err == nil {
