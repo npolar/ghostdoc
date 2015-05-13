@@ -17,13 +17,14 @@ func InitGhostDoc() {
 	ghostdoc := cli.NewApp()
 	ghostdoc.Name = "ghostdoc"
 	ghostdoc.Version = "0.0.1"
-	ghostdoc.Usage = "Client used posting data to REST apis"
-	ghostdoc.Flags = ConfigureFlags()
-	ghostdoc.Action = ProcessDocs
+	ghostdoc.Usage = "Flexible file parser / REST client"
+	ghostdoc.Flags = configureFlags()
+	ghostdoc.Action = processDocs
+	ghostdoc.Commands = defineCommands()
 	ghostdoc.Run(os.Args)
 }
 
-func ConfigureFlags() []cli.Flag {
+func configureFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
 			Name:  "address, a",
@@ -35,19 +36,9 @@ func ConfigureFlags() []cli.Flag {
 			Usage: "Specify the number of concurrent operations",
 		},
 		cli.StringFlag{
-			Name:  "delimiter, d",
-			Value: ",",
-			Usage: "Set the demlimiter for working with csv data",
-		},
-		cli.StringFlag{
 			Name:  "exclude, e",
 			Value: "",
 			Usage: "Specify keys (before mapping) to exclude from the output",
-		},
-		cli.StringFlag{
-			Name:  "format, f",
-			Value: "json",
-			Usage: "Set the input format [json|csv|txt]",
 		},
 		cli.StringFlag{
 			Name:  "http-verb",
@@ -75,11 +66,6 @@ func ConfigureFlags() []cli.Flag {
 			Value: "data",
 			Usage: "Specify the key to use for the payload when wrapping",
 		},
-		cli.StringFlag{
-			Name:  "text-key, t",
-			Value: "text",
-			Usage: "Specify the key to use for the payload when wrapping",
-		},
 		cli.BoolFlag{
 			Name:  "uuid, u",
 			Usage: "Injects a namesaced uuid with the 'id' key",
@@ -95,7 +81,16 @@ func ConfigureFlags() []cli.Flag {
 	}
 }
 
-func ProcessDocs(c *cli.Context) {
+func defineCommands() []cli.Command {
+	return []cli.Command{
+		ghostdoc.DsvCommand(),
+		ghostdoc.JsonCommand(),
+		ghostdoc.TextCommand(),
+	}
+
+}
+
+func processDocs(c *cli.Context) {
 	// Create a buffered interface channel
 	var dataChan = make(chan interface{}, c.Int("concurrency"))
 	wg := &sync.WaitGroup{}
