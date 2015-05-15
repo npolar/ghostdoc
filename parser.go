@@ -15,7 +15,6 @@ import (
 
 const (
 	textFileRegex = `(?i)^.+\.txt$`
-	jsonFileRegex = `(?i)^.+\.json|geojson|topojson$`
 	newlineRegex  = `\n|\r\n|\n\r$`
 )
 
@@ -90,8 +89,6 @@ func (p *Parser) parseFile(fname string) {
 	switch {
 	case p.isText(fname):
 		p.parseText(raw, fname)
-	case p.isJson(fname):
-		err = p.parseJson(raw, fname)
 	default:
 		log.Println("Unsupported file type")
 	}
@@ -118,25 +115,6 @@ func (p *Parser) parseText(data []byte, fname string) error {
 		p.DataChannel <- d
 	}(textIface)
 	p.WaitGroup.Add(1)
-
-	return err
-}
-
-// parseJson reads json data into an interface and pushes the result onto
-// the data channel for further processing
-func (p *Parser) parseJson(data []byte, fname string) error {
-	var jsonData interface{}
-	err := json.Unmarshal(data, &jsonData)
-
-	if err == nil {
-		jsonData, err = p.parseFileName(fname, jsonData)
-
-		go func(d interface{}) {
-			p.DataChannel <- d
-		}(jsonData)
-
-		p.WaitGroup.Add(1)
-	}
 
 	return err
 }
