@@ -42,7 +42,7 @@ func NewJsonParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Jso
 	// Configure the argument handler and give it a channel for the raw data
 	inputChan := make(chan []byte, c.GlobalInt("concurrency"))
 	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
-	// Customize the argument handler to relate to csv values
+	// Customize the argument handler to relate to json values
 	parser.TypeHandler = &JsonHandler{}
 
 	return parser
