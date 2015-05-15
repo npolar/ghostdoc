@@ -20,8 +20,8 @@ func NewCsvHandler(delimiter string) *CsvHandler {
 
 // rawInput does a lazy check for raw inline input and returns true if matches
 func (c *CsvHandler) rawInput(argument string) bool {
-	rawcsv := regexp.MustCompile(`^(.*)` + c.Delimiter + `(.*)$`)
-	return rawcsv.MatchString(argument)
+	rawCsv := regexp.MustCompile(`^(.*)` + c.Delimiter + `(.*)$`)
+	return rawCsv.MatchString(argument)
 }
 
 // supportedFile returns true if the filename meets the requirements
