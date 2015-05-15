@@ -63,7 +63,7 @@ func (a *ArgumentHandler) handleDiskInput(argument string, recursive bool) {
 		} else if !a.configuration(argument) && a.supportedFile(argument) {
 			a.handleFileInput(argument)
 		} else {
-			log.Println("[File Error] unsupported filetype")
+			log.Println("[Unsupported Filetype] Skipping:", argument)
 		}
 	} else {
 		log.Println("[Input Error]", err)
