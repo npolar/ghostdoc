@@ -26,20 +26,20 @@ func CsvCommand() cli.Command {
 			cli.StringFlag{
 				Name:  "delimiter, d",
 				Value: ",",
-				Usage: "Set the delimiter char",
+				Usage: "Set the delimiter char.",
 			},
 			cli.StringFlag{
 				Name:  "comment, c",
 				Value: "#",
-				Usage: "Set the comment char",
+				Usage: "Set the comment char.",
 			},
 			cli.StringFlag{
 				Name:  "header, hd",
-				Usage: "Configure data header. If not set the first data line will be used",
+				Usage: "Configure data header. If not set the first data line will be used.",
 			},
 			cli.IntFlag{
 				Name:  "skip, s",
-				Usage: "Specify the number of lines to skip before parsing",
+				Usage: "Specify the number of lines to skip before parsing. [NOTE] Blank lines are ignored by the parser and should not be skipped.",
 			},
 		},
 		Action: processCsv,
