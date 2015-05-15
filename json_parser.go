@@ -76,7 +76,7 @@ func (jsp *JsonParser) parse() {
 
 		jsp.RawSync.Wait()
 	} else {
-		log.Println(err)
+		log.Println("[JSON] Argument Error:", err)
 	}
 }
 
