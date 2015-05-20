@@ -131,8 +131,17 @@ func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{},
 func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if w.Cli.Bool("uuid") {
-		if doc, jsonError := json.Marshal(data); jsonError == nil {
+	if w.Cli.IsSet("uuid") {
+		hashData := data
+
+		if uuid := w.Cli.String("uuid"); len(uuid) > 0 {
+			hashData = make(map[string]interface{})
+			for _, key := range strings.Split(uuid, ",") {
+				hashData[key] = data[key]
+			}
+		}
+
+		if doc, jsonError := json.Marshal(hashData); jsonError == nil {
 			data["id"] = w.generateUUID(doc)
 		} else {
 			err = jsonError
