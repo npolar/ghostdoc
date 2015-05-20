@@ -2,12 +2,13 @@ package ghostdoc
 
 import (
 	"errors"
-	"github.com/codegangsta/cli"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/codegangsta/cli"
 )
 
 // TypeHandler interface used to check filetypes
@@ -18,12 +19,12 @@ type TypeHandler interface {
 
 type ArgumentHandler struct {
 	Cli     *cli.Context
-	RawChan chan []byte
+	RawChan chan [][]byte
 	RawSync *sync.WaitGroup
 	TypeHandler
 }
 
-func NewArgumentHandler(c *cli.Context, raw chan []byte) *ArgumentHandler {
+func NewArgumentHandler(c *cli.Context, raw chan [][]byte) *ArgumentHandler {
 	return &ArgumentHandler{
 		Cli:     c,
 		RawChan: raw,
@@ -49,8 +50,11 @@ func (a *ArgumentHandler) processArguments() {
 
 func (a *ArgumentHandler) handleInput(argument string) {
 	if a.rawInput(argument) {
+		data := make([][]byte, 2)
+		data[0] = []byte("")
+		data[1] = []byte(argument)
 		a.RawSync.Add(1)
-		a.RawChan <- []byte(argument)
+		a.RawChan <- data
 	} else {
 		a.handleDiskInput(argument, false)
 	}
@@ -82,9 +86,12 @@ func (a *ArgumentHandler) globDir(input string) {
 
 func (a *ArgumentHandler) handleFileInput(input string) {
 	if raw, err := ioutil.ReadFile(input); err == nil {
+		data := make([][]byte, 2)
+		data[0] = []byte(input)
+		data[1] = raw
 		a.RawSync.Add(1)
 		go func() {
-			a.RawChan <- raw
+			a.RawChan <- data
 		}()
 	} else {
 		log.Println("[File Error]", err)

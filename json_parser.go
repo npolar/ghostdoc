@@ -2,9 +2,10 @@ package ghostdoc
 
 import (
 	"encoding/json"
-	"github.com/codegangsta/cli"
 	"log"
 	"sync"
+
+	"github.com/codegangsta/cli"
 )
 
 type JsonParser struct {
@@ -40,7 +41,7 @@ func NewJsonParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Jso
 	}
 
 	// Configure the argument handler and give it a channel for the raw data
-	inputChan := make(chan []byte, c.GlobalInt("concurrency"))
+	inputChan := make(chan [][]byte, c.GlobalInt("concurrency"))
 	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
 	// Customize the argument handler to relate to json values
 	parser.TypeHandler = &JsonHandler{}
@@ -81,9 +82,14 @@ func (jsp *JsonParser) parse() {
 }
 
 // parseToInterface reads the raw json data and converts it to an interface{}
-func (jsp *JsonParser) parseToInterface(raw []byte) {
+func (jsp *JsonParser) parseToInterface(raw [][]byte) {
 	var jsonData interface{}
-	if err := json.Unmarshal(raw, &jsonData); err == nil {
+
+	if err := json.Unmarshal(raw[1], &jsonData); err == nil {
+		if jsonData, err = parseFileName(jsp.Cli, string(raw[0]), jsonData); err != nil {
+			log.Println("[JSON] Filename parsing error!", err)
+			return
+		}
 		jsp.WaitGroup.Add(1)
 		go func(d interface{}) {
 			jsp.DataChannel <- d

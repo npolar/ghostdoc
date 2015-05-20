@@ -2,12 +2,12 @@ package ghostdoc
 
 import (
 	"fmt"
-	"github.com/codegangsta/cli"
-	"github.com/npolar/ciface"
 	"log"
 	"strconv"
-	"strings"
 	"sync"
+
+	"github.com/codegangsta/cli"
+	"github.com/npolar/ciface"
 )
 
 type CsvParser struct {
@@ -54,7 +54,7 @@ func newCsvParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *CsvP
 	}
 
 	// Configure the argument handler and give it a channel for the raw data
-	inputChan := make(chan []byte, c.GlobalInt("concurrency"))
+	inputChan := make(chan [][]byte, c.GlobalInt("concurrency"))
 	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
 	// Customize the argument handler to relate to csv values
 	parser.TypeHandler = &CsvHandler{
@@ -97,12 +97,12 @@ func (csv *CsvParser) parse() {
 	}
 }
 
-func (csv *CsvParser) parseToInterface(raw []byte) {
-	cif := ciface.NewParser(raw)
+func (csv *CsvParser) parseToInterface(raw [][]byte) {
+	cif := ciface.NewParser(raw[1])
 	cif.Skip = csv.Cli.Int("skip")
 
 	if header := csv.Cli.String("header"); header != "" {
-		cif.Header = strings.Split(csv.Cli.String("header"), ",")
+		cif.Header = stringSlice(csv.Cli.String("header"))
 	}
 
 	delimiterRune, _, _, _ := strconv.UnquoteChar(csv.Cli.String("delimiter"), '"')
@@ -115,8 +115,7 @@ func (csv *CsvParser) parseToInterface(raw []byte) {
 
 	// push the docs onto the data channel
 	for _, doc := range docs {
-		//    doc, err = p.parseFileName(fname, doc)
-
+		doc, err = parseFileName(csv.Cli, string(raw[0]), doc)
 		csv.WaitGroup.Add(1)
 
 		go func(d interface{}) {

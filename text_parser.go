@@ -1,11 +1,12 @@
 package ghostdoc
 
 import (
-	"github.com/codegangsta/cli"
 	"log"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/codegangsta/cli"
 )
 
 const (
@@ -46,7 +47,7 @@ func NewTextParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Tex
 	}
 
 	// Configure the argument handler and give it a channel for the raw data
-	inputChan := make(chan []byte, c.GlobalInt("concurrency"))
+	inputChan := make(chan [][]byte, c.GlobalInt("concurrency"))
 	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
 	// Customize the argument handler ro relate to text values
 	parser.TypeHandler = &TextHandler{}
@@ -88,11 +89,11 @@ func (tp *TextParser) parse() {
 	}
 }
 
-func (tp *TextParser) parseToInterface(raw []byte) {
+func (tp *TextParser) parseToInterface(raw [][]byte) {
 	var dataMap = make(map[string]interface{})
 	var textIface interface{}
 
-	text := tp.replaceNewLines(raw, " ")
+	text := tp.replaceNewLines(raw[1], " ")
 	dataMap[tp.Cli.String("key")] = strings.TrimSpace(string(text))
 	textIface = dataMap
 
