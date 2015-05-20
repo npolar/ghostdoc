@@ -67,7 +67,7 @@ func (w *Writer) Write() error {
 func (w *Writer) excludeKeys(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if excludes := w.Cli.String("exclude"); excludes != "" {
+	if excludes := w.Cli.GlobalString("exclude"); excludes != "" {
 		excludesSlice := strings.Split(excludes, ",")
 		for _, key := range excludesSlice {
 			delete(data, key)
@@ -81,7 +81,7 @@ func (w *Writer) mapKeys(data map[string]interface{}) (map[string]interface{}, e
 	var err error
 	dataMap := data
 
-	if keyMap := w.Cli.String("key-map"); keyMap != "" {
+	if keyMap := w.Cli.GlobalString("key-map"); keyMap != "" {
 		if mapping, mapErr := w.readData(keyMap); mapErr == nil {
 			for key, val := range mapping {
 				dataMap[val.(string)] = dataMap[key]
@@ -98,9 +98,9 @@ func (w *Writer) mapKeys(data map[string]interface{}) (map[string]interface{}, e
 func (w *Writer) wrapData(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if wrap := w.Cli.String("wrapper"); wrap != "" {
+	if wrap := w.Cli.GlobalString("wrapper"); wrap != "" {
 		if wrapper, dataErr := w.readData(wrap); dataErr == nil {
-			key := w.Cli.String("payload-key")
+			key := w.Cli.GlobalString("payload-key")
 			wrapper[key] = data
 			data = wrapper
 		} else {
@@ -114,7 +114,7 @@ func (w *Writer) wrapData(data map[string]interface{}) (map[string]interface{}, 
 func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if merge := w.Cli.String("merge"); merge != "" {
+	if merge := w.Cli.GlobalString("merge"); merge != "" {
 		if padding, dataError := w.readData(merge); dataError == nil {
 
 			for key, val := range padding {
@@ -131,17 +131,8 @@ func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{},
 func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if w.Cli.IsSet("uuid") {
-		hashData := data
-
-		if uuid := w.Cli.String("uuid"); len(uuid) > 0 {
-			hashData = make(map[string]interface{})
-			for _, key := range strings.Split(uuid, ",") {
-				hashData[key] = data[key]
-			}
-		}
-
-		if doc, jsonError := json.Marshal(hashData); jsonError == nil {
+	if w.Cli.GlobalBool("uuid") {
+		if doc, jsonError := json.Marshal(data); jsonError == nil {
 			data["id"] = w.generateUUID(doc)
 		} else {
 			err = jsonError
@@ -161,7 +152,7 @@ func (w *Writer) generateUUID(input []byte) string {
 func (w *Writer) createOutputDir() error {
 	var err error
 
-	if output := w.Cli.String("output"); output != "" {
+	if output := w.Cli.GlobalString("output"); output != "" {
 		if state, statErr := os.Stat(output); state == nil {
 			err = os.Mkdir(output, 0755)
 		} else {
@@ -200,7 +191,7 @@ func (w *Writer) publishData(data map[string]interface{}) error {
 func (w *Writer) writeFile(doc []byte, id string) error {
 	var err error
 
-	if output := w.Cli.String("output"); output != "" {
+	if output := w.Cli.GlobalString("output"); output != "" {
 		if path, pathErr := filepath.Abs(output); pathErr == nil {
 			err = ioutil.WriteFile(path+"/"+id+".json", doc, 0755)
 		} else {
@@ -216,18 +207,18 @@ func (w *Writer) writeFile(doc []byte, id string) error {
 func (w *Writer) httpRequest(doc []byte, id string) error {
 	var err error
 
-	if addr := w.Cli.String("address"); addr != "" {
+	if addr := w.Cli.GlobalString("address"); addr != "" {
 		if uri, uriErr := url.Parse(addr); uriErr == nil {
 			client := &http.Client{}
 
 			byteReader := bytes.NewReader(doc)
 
-			if req, httpErr := http.NewRequest(w.Cli.String("http-verb"), uri.String(), byteReader); httpErr == nil {
+			if req, httpErr := http.NewRequest(w.Cli.GlobalString("http-verb"), uri.String(), byteReader); httpErr == nil {
 				req.Header.Set("Content-Type", "application/json")
 				resp, reqErr := client.Do(req)
 				err = reqErr
 
-				log.Println("HTTP", w.Cli.String("http-verb"), "Response:", resp.Status)
+				log.Println("HTTP", w.Cli.GlobalString("http-verb"), "Response:", resp.Status)
 			} else {
 				err = httpErr
 			}
