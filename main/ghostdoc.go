@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"sync"
 
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ghostdoc"
@@ -91,21 +90,5 @@ func defineCommands() []cli.Command {
 }
 
 func processDocs(c *cli.Context) {
-	// Create a buffered interface channel
-	var dataChan = make(chan interface{}, c.Int("concurrency"))
-	wg := &sync.WaitGroup{}
-
-	// Setup a new parser and pass the cli context and the dataChannel
-	parser := ghostdoc.NewParser(c, dataChan, wg)
-	// Parse all the files and push them on the channel
-	parser.Parse()
-
-	// Grabs contents from the channel and write the final file format
-	writer := ghostdoc.NewWriter(c, dataChan, wg)
-	if err := writer.Write(); err != nil {
-		log.Println(err.Error())
-	}
-	// Wait for all go routines to finish before exiting
-	wg.Wait()
-	//close(dataChan)
+	log.Println("Welocome to", c.App.Name, "See -h for usage info.")
 }
