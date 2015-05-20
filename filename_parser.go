@@ -23,7 +23,8 @@ func parseFileName(Cli *cli.Context, fname string, doc interface{}) (interface{}
 		if err = json.Unmarshal(pdoc, &pattern); err == nil {
 			if pRgx := regexp.MustCompile(pattern["pattern"].(string)); pRgx.MatchString(fname) {
 				matches := pRgx.FindStringSubmatch(fname)
-				output := pattern["output"].(string)
+				outputB, _ := json.Marshal(pattern["output"])
+				output := string(outputB)
 
 				// Replace the %<count> indicators in the output with the matching capture
 				for i, match := range matches {
@@ -31,7 +32,12 @@ func parseFileName(Cli *cli.Context, fname string, doc interface{}) (interface{}
 					output = rxp.ReplaceAllString(output, match)
 				}
 
-				doc.(map[string]interface{})[pattern["key"].(string)] = output
+				var jsonData map[string]interface{}
+				if err := json.Unmarshal([]byte(output), &jsonData); err == nil {
+					for key, val := range jsonData {
+						doc.(map[string]interface{})[key] = val
+					}
+				}
 			}
 		}
 	}
