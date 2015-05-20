@@ -3,6 +3,7 @@ package ghostdoc
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -54,6 +55,8 @@ func (w *Writer) Write() error {
 
 			if err == nil {
 				err = w.publishData(dataMap)
+			} else {
+				log.Println(err.Error())
 			}
 
 			w.WaitGroup.Done()
@@ -152,7 +155,10 @@ func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}
 			idData = make(map[string]interface{})
 			keysSlice := stringSlice(keys)
 			for _, key := range keysSlice {
-				idData[key] = data[key]
+				var ok bool
+				if idData[key], ok = data[key]; !ok {
+					return data, errors.New("Could not build UUID on key: " + key)
+				}
 			}
 		}
 		if doc, jsonError := json.Marshal(idData); jsonError == nil {
