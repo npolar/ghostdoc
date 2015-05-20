@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -46,7 +45,7 @@ func (w *Writer) Write() error {
 		for {
 			data := <-w.DataChannel
 			dataMap := data.(map[string]interface{})
-
+			dataMap, err = w.includeKeys(dataMap)
 			dataMap, err = w.excludeKeys(dataMap)
 			dataMap, err = w.mapKeys(dataMap)
 			dataMap, err = w.mergeData(dataMap)
@@ -64,11 +63,26 @@ func (w *Writer) Write() error {
 	return err
 }
 
+func (w *Writer) includeKeys(data map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	includeData := data
+
+	if includes := w.Cli.GlobalString("include"); includes != "" {
+		includesSlice := stringSlice(includes)
+		includeData = make(map[string]interface{})
+		for _, key := range includesSlice {
+			includeData[key] = data[key]
+		}
+	}
+
+	return includeData, err
+}
+
 func (w *Writer) excludeKeys(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
 	if excludes := w.Cli.GlobalString("exclude"); excludes != "" {
-		excludesSlice := strings.Split(excludes, ",")
+		excludesSlice := stringSlice(excludes)
 		for _, key := range excludesSlice {
 			delete(data, key)
 		}
@@ -136,7 +150,7 @@ func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}
 		idData := data
 		if keys != "" {
 			idData = make(map[string]interface{})
-			keysSlice := strings.Split(keys, ",")
+			keysSlice := stringSlice(keys)
 			for _, key := range keysSlice {
 				idData[key] = data[key]
 			}

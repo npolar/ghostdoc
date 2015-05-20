@@ -36,8 +36,11 @@ func configureFlags() []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:  "exclude, e",
-			Value: "",
-			Usage: "Specify keys (before mapping) to exclude from the output",
+			Usage: "Specify keys (before mapping) to exclude in the output",
+		},
+		cli.StringFlag{
+			Name:  "include, i",
+			Usage: "Specify keys (before mapping) to include in the output",
 		},
 		cli.StringFlag{
 			Name:  "http-verb",
@@ -46,11 +49,11 @@ func configureFlags() []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:  "key-map, k",
-			Usage: "Sets mapping file to use to rename headers/keys. Format {\"oldkey\": \"newkey\"}",
+			Usage: "Sets mapping file to use to rename headers/keys. JSON Format {\"oldkey\": \"newkey\"}",
 		},
 		cli.StringFlag{
 			Name:  "merge, m",
-			Usage: "Specify additional data to inject into the output",
+			Usage: "Specify additional JSON data to inject into the output.",
 		},
 		cli.StringFlag{
 			Name:  "name-pattern, n",
@@ -75,7 +78,7 @@ func configureFlags() []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:  "wrapper, w",
-			Usage: "Define wrapper a wrapper for the payload",
+			Usage: "Define JSON wrapper a wrapper for the payload",
 		},
 		cli.BoolFlag{
 			Name:  "recursive, r",
