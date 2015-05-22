@@ -39,6 +39,10 @@ func configureFlags() []cli.Flag {
 			Usage: "Specify keys (before mapping) to exclude in the output",
 		},
 		cli.StringFlag{
+			Name:  "filename, f",
+			Usage: "Set filename to use in name-pattern when piping data via stdin",
+		},
+		cli.StringFlag{
 			Name:  "include, i",
 			Usage: "Specify keys (before mapping) to include in the output",
 		},

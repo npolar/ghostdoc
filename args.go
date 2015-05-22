@@ -61,7 +61,7 @@ func (a *ArgumentHandler) processArguments() {
 func (a *ArgumentHandler) handleInput(argument string) {
 	if a.rawInput(argument) {
 		data := make([][]byte, 2)
-		data[0] = []byte("")
+		data[0] = []byte(a.Cli.GlobalString("filename"))
 		data[1] = []byte(argument)
 		a.RawSync.Add(1)
 		a.RawChan <- data

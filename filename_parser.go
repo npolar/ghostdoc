@@ -3,6 +3,7 @@ package ghostdoc
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
 	"regexp"
 	"strconv"
 
@@ -12,6 +13,7 @@ import (
 // parseFilename handles meta data extraction from filenames. It reads the pattern
 // file specified with the --name-pattern argument and parses the filename according
 func parseFileName(Cli *cli.Context, fname string, doc interface{}) (interface{}, error) {
+	log.Println(fname)
 	var err error
 	if pat := Cli.GlobalString("name-pattern"); pat != "" {
 		var pattern = make(map[string]interface{})
