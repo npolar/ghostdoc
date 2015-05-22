@@ -2,6 +2,7 @@ package ghostdoc
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strconv"
 	"sync"
@@ -102,7 +103,12 @@ func (csv *CsvParser) parseToInterface(raw [][]byte) {
 	cif.Skip = csv.Cli.Int("skip")
 
 	if header := csv.Cli.String("header"); header != "" {
-		cif.Header = stringSlice(csv.Cli.String("header"))
+		hfile, err := ioutil.ReadFile(header)
+		if err != nil {
+			cif.Header = stringSlice(csv.Cli.String("header"))
+		} else {
+			cif.Header = stringSlice(string(hfile))
+		}
 	}
 
 	delimiterRune, _, _, _ := strconv.UnquoteChar(csv.Cli.String("delimiter"), '"')
