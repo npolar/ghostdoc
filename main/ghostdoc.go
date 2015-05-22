@@ -73,6 +73,10 @@ func configureFlags() []cli.Flag {
 			Usage: "Specify the key to use for the payload when wrapping",
 		},
 		cli.BoolFlag{
+			Name:  "quiet, q",
+			Usage: "Turn off logging to stdout",
+		},
+		cli.BoolFlag{
 			Name:  "uuid, u",
 			Usage: "Injects a namesaced uuid with the 'id' key",
 		},
@@ -101,5 +105,5 @@ func defineCommands() []cli.Command {
 }
 
 func processDocs(c *cli.Context) {
-	log.Println("Welocome to", c.App.Name, "See -h for usage info.")
+	log.Println("Missing command", "See -h for usage info.")
 }

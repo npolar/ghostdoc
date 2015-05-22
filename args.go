@@ -48,6 +48,10 @@ func (a *ArgumentHandler) hasPipe() bool {
 
 // processArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
+	if a.Cli.GlobalBool("quiet") {
+		log.SetOutput(ioutil.Discard)
+	}
+
 	if a.hasPipe() {
 		bytes, _ := ioutil.ReadAll(os.Stdin)
 		a.handleInput(string(bytes))
