@@ -16,7 +16,7 @@ func NewJsonHandler() *JsonHandler {
 
 // rawInput does a lazy check for raw inline input and returns true if matches
 func (j *JsonHandler) rawInput(argument string) bool {
-	rawJson := regexp.MustCompile(`^\[|{\".+\":.+}|]$`)
+	rawJson := regexp.MustCompile(`(?m)^\[|{\".+\":.+}|]$`)
 	return rawJson.MatchString(argument)
 }
 

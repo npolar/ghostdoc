@@ -1,8 +1,6 @@
 package ghostdoc
 
-import (
-	"regexp"
-)
+import "regexp"
 
 const (
 	csvExtRegex = `(?i)^.+\.csv|tsv|txt`
@@ -20,7 +18,7 @@ func NewCsvHandler(delimiter string) *CsvHandler {
 
 // rawInput does a lazy check for raw inline input and returns true if matches
 func (c *CsvHandler) rawInput(argument string) bool {
-	rawCsv := regexp.MustCompile(`^(.*)` + c.Delimiter + `(.*)$`)
+	rawCsv := regexp.MustCompile(`(?m)^(.*)` + c.Delimiter + `(.*)$`)
 	return rawCsv.MatchString(argument)
 }
 

@@ -16,7 +16,7 @@ func NewTextHandler() *TextHandler {
 
 // rawInput does a lazy check for raw inline input and returns true if matches
 func (j *TextHandler) rawInput(argument string) bool {
-	rawText := regexp.MustCompile(`^\[|{\".+\":.+}|]$`)
+	rawText := regexp.MustCompile(`(?m)^\[|{\".+\":.+}|]$`)
 	return rawText.MatchString(argument)
 }
 

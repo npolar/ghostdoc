@@ -34,17 +34,27 @@ func NewArgumentHandler(c *cli.Context, raw chan [][]byte) *ArgumentHandler {
 
 // hasArgs checks if any commandline arguments where provided
 func (a *ArgumentHandler) hasArgs() (bool, error) {
-	if len(a.Cli.Args()) == 0 {
+	if len(a.Cli.Args()) == 0 && !a.hasPipe() {
 		return false, errors.New("[Argument Error] Called without arguments: " + a.Cli.App.Name + " -h for usage info.")
 	}
 
 	return true, nil
 }
 
+func (a *ArgumentHandler) hasPipe() bool {
+	fi, err := os.Stdin.Stat()
+	return !(fi.Mode()&os.ModeNamedPipe == 0) && err == nil
+}
+
 // processArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
-	for _, argument := range a.Cli.Args() {
-		a.handleInput(argument)
+	if a.hasPipe() {
+		bytes, _ := ioutil.ReadAll(os.Stdin)
+		a.handleInput(string(bytes))
+	} else {
+		for _, argument := range a.Cli.Args() {
+			a.handleInput(argument)
+		}
 	}
 }
 
