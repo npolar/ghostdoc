@@ -47,6 +47,10 @@ func configureFlags() []cli.Flag {
 			Usage: "Specify keys (before mapping) to include in the output",
 		},
 		cli.StringFlag{
+			Name:  "js, j",
+			Usage: "Run javascript map functions on the data",
+		},
+		cli.StringFlag{
 			Name:  "http-verb",
 			Value: "POST",
 			Usage: "Set the http verb to use [POST|PUT]",

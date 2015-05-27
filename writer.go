@@ -26,6 +26,7 @@ type Writer struct {
 	Cli         *cli.Context
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
+	Js          *Js
 }
 
 // NewWriter initialises a new Writer and return a pointer to it
@@ -34,6 +35,7 @@ func NewWriter(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Writer 
 		Cli:         c,
 		DataChannel: dc,
 		WaitGroup:   wg,
+		Js:          NewJs(c),
 	}
 }
 
@@ -52,6 +54,7 @@ func (w *Writer) Write() error {
 			dataMap, err = w.mergeData(dataMap)
 			dataMap, err = w.wrapData(dataMap)
 			dataMap, err = w.injectUUID(dataMap)
+			dataMap, err = w.Js.runJs(dataMap)
 
 			if err == nil {
 				err = w.publishData(dataMap)
