@@ -33,8 +33,8 @@
    * --help, -h			show help
    * --version, -v		print the version
 
-## JavaScript api
-JavasCript mapping files should expose one global object named "functions".
+## javascript api
+javascript mapping files should expose one global object named "functions".
 
 ```
 functions = {
