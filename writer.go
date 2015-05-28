@@ -21,12 +21,15 @@ const (
 	jsonRegex = `^\{\".+\"\:.+\}$`
 )
 
+type mapper func(data map[string]interface{}) (map[string]interface{}, error)
+
 // Writer type definition
 type Writer struct {
 	Cli         *cli.Context
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
 	Js          *Js
+	Validator   *Validator
 }
 
 // NewWriter initialises a new Writer and return a pointer to it
@@ -36,6 +39,7 @@ func NewWriter(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Writer 
 		DataChannel: dc,
 		WaitGroup:   wg,
 		Js:          NewJs(c),
+		Validator:   NewValidator(c),
 	}
 }
 
@@ -48,13 +52,11 @@ func (w *Writer) Write() error {
 		for {
 			data := <-w.DataChannel
 			dataMap := data.(map[string]interface{})
-			dataMap, err = w.includeKeys(dataMap)
-			dataMap, err = w.excludeKeys(dataMap)
-			dataMap, err = w.mapKeys(dataMap)
-			dataMap, err = w.mergeData(dataMap)
-			dataMap, err = w.wrapData(dataMap)
-			dataMap, err = w.injectUUID(dataMap)
-			dataMap, err = w.Js.runJs(dataMap)
+			dataMap, err = w.applyMappers(dataMap)
+
+			if err == nil {
+				err = w.Validator.validate(dataMap)
+			}
 
 			if err == nil {
 				err = w.publishData(dataMap)
@@ -67,6 +69,26 @@ func (w *Writer) Write() error {
 	}()
 
 	return err
+}
+
+func (w *Writer) applyMappers(dataMap map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	mappers := []mapper{
+		w.includeKeys,
+		w.excludeKeys,
+		w.mapKeys,
+		w.mergeData,
+		w.wrapData,
+		w.injectUUID,
+		w.Js.runJs}
+
+	for _, fn := range mappers {
+		dataMap, err = fn(dataMap)
+		if err != nil {
+			break
+		}
+	}
+	return dataMap, err
 }
 
 func (w *Writer) includeKeys(data map[string]interface{}) (map[string]interface{}, error) {

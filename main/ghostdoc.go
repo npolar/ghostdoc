@@ -96,6 +96,10 @@ func configureFlags() []cli.Flag {
 			Name:  "recursive, r",
 			Usage: "Recursive read mode. also process sub-dirs",
 		},
+		cli.StringFlag{
+			Name:  "schema, s",
+			Usage: "Reference to a JSON Schema to validate json output against",
+		},
 	}
 }
 
