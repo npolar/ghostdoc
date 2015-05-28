@@ -2,6 +2,7 @@ package ghostdoc
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"regexp"
 	"strconv"
@@ -40,6 +41,10 @@ func parseFileName(Cli *cli.Context, fname string, doc interface{}) (interface{}
 				}
 			}
 		}
+	}
+
+	if err != nil {
+		err = errors.New("name-pattern: " + err.Error())
 	}
 
 	return doc, err

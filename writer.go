@@ -85,6 +85,7 @@ func (w *Writer) applyMappers(dataMap map[string]interface{}) (map[string]interf
 	for _, fn := range mappers {
 		dataMap, err = fn(dataMap)
 		if err != nil {
+			err = errors.New("[Writer error] " + err.Error())
 			break
 		}
 	}

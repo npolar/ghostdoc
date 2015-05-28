@@ -1,7 +1,7 @@
 package ghostdoc
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/codegangsta/cli"
 	"github.com/xeipuuv/gojsonschema"
@@ -30,7 +30,8 @@ func (v *Validator) validate(data map[string]interface{}) error {
 		result, err = gojsonschema.Validate(schemaLoader, documentLoader)
 
 		if !result.Valid() {
-			err = errors.New(result.Errors()[0].Description())
+			first := result.Errors()[0]
+			err = fmt.Errorf("[Validation error] %v: %v (was %v)", first.Field(), first.Description(), first.Value())
 		}
 	}
 	return err
