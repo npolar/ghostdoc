@@ -44,29 +44,32 @@ func NewWriter(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) 
 	}
 }
 
-// Write applies the configured output modifiers and then writes
+// Listens to the DataChannel and applies the configured output modifiers and then writes
 // the result to the configured output channel [stdout|files|http]
-func (w *Writer) Write() error {
+func (w *Writer) listen() error {
 	err := w.createOutputDir()
+	sem := make(chan int, w.context.GlobalInt("concurrency"))
 
+	w.WaitGroup.Add(1)
 	go func() {
-		for {
-			data := <-w.DataChannel
-			dataMap := data.(map[string]interface{})
-			dataMap, err = w.applyMappers(dataMap)
+		for data := range w.DataChannel {
+			sem <- 1
+			go func(dataMap map[string]interface{}) {
+				dataMap, err = w.applyMappers(dataMap)
 
-			if err == nil {
-				err = w.Validator.validate(dataMap)
-			}
+				if err == nil {
+					err = w.Validator.validate(dataMap)
+				}
 
-			if err == nil {
-				err = w.publishData(dataMap)
-			} else {
-				log.Println(err.Error())
-			}
-
-			w.WaitGroup.Done()
+				if err == nil {
+					err = w.publishData(dataMap)
+				} else {
+					log.Println(err.Error())
+				}
+				<-sem
+			}(data.(map[string]interface{}))
 		}
+		w.WaitGroup.Done()
 	}()
 
 	return err
@@ -232,10 +235,9 @@ func (w *Writer) publishData(data map[string]interface{}) error {
 			id = w.generateUUID(doc)
 		}
 
-		log.Println(id, string(doc))
-
 		err = w.writeFile(doc, id)
 		err = w.httpRequest(doc, id)
+		log.Println(id, string(doc))
 	} else {
 		err = jsonErr
 	}
@@ -272,8 +274,12 @@ func (w *Writer) httpRequest(doc []byte, id string) error {
 			if req, httpErr := http.NewRequest(w.context.GlobalString("http-verb"), uri.String(), byteReader); httpErr == nil {
 				req.Header.Set("Content-Type", "application/json")
 				var resp *http.Response
+
 				if resp, err = client.Do(req); err == nil {
+					defer resp.Body.Close()
 					log.Println("HTTP", w.context.GlobalString("http-verb"), "Response:", resp.Status)
+				} else {
+					log.Println("HTTP Error", w.context.GlobalString("http-verb"), err.Error())
 				}
 
 			} else {

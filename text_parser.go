@@ -51,7 +51,7 @@ func NewTextParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGro
 	}
 
 	// Configure the argument handler and give it a channel for the raw data
-	inputChan := make(chan [][]byte, c.GlobalInt("concurrency"))
+	inputChan := make(chan *RawFile, c.GlobalInt("concurrency"))
 	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
 	// Customize the argument handler ro relate to text values
 	parser.TypeHandler = &TextHandler{}
@@ -67,7 +67,7 @@ func processText(c *cli.Context) {
 
 	// Setup the writer for output handling
 	writer := NewWriter(context, textChan, wg)
-	if err := writer.Write(); err != nil {
+	if err := writer.listen(); err != nil {
 		panic(err.Error())
 	}
 
@@ -86,21 +86,19 @@ func (tp *TextParser) parse() {
 		go func() {
 			for {
 				tp.parseToInterface(<-tp.RawChan)
-				tp.RawSync.Done()
 			}
 		}()
 
-		tp.RawSync.Wait()
 	} else {
 		log.Println("[Text] Argument error:", err)
 	}
 }
 
-func (tp *TextParser) parseToInterface(raw [][]byte) {
+func (tp *TextParser) parseToInterface(raw *RawFile) {
 	var dataMap = make(map[string]interface{})
 	var textIface interface{}
 
-	text := tp.replaceNewLines(raw[1], " ")
+	text := tp.replaceNewLines(raw.data, " ")
 	dataMap[tp.context.String("key")] = strings.TrimSpace(string(text))
 	textIface = dataMap
 

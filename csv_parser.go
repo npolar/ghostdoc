@@ -58,8 +58,8 @@ func newCsvParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGrou
 	}
 
 	// Configure the argument handler and give it a channel for the raw data
-	inputChan := make(chan [][]byte, c.GlobalInt("concurrency"))
-	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
+	rawChan := make(chan *RawFile, c.GlobalInt("concurrency"))
+	parser.ArgumentHandler = NewArgumentHandler(c, rawChan)
 	// Customize the argument handler to relate to csv values
 	parser.TypeHandler = &CsvHandler{
 		Delimiter: c.String("delimiter"),
@@ -69,17 +69,17 @@ func newCsvParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGrou
 }
 
 func processCsv(c *cli.Context) {
-	var csvChan = make(chan interface{})
+	var dataChan = make(chan interface{}, c.GlobalInt("concurrency"))
 	wg := &sync.WaitGroup{}
 
 	context := context.NewCliContext(c)
 
-	writer := NewWriter(context, csvChan, wg)
-	if err := writer.Write(); err != nil {
+	writer := NewWriter(context, dataChan, wg)
+	if err := writer.listen(); err != nil {
 		panic(err.Error())
 	}
 
-	csvParser := newCsvParser(context, csvChan, wg)
+	csvParser := newCsvParser(context, dataChan, wg)
 	csvParser.parse()
 
 	// Wait for all go routines to finish before exiting
@@ -88,24 +88,21 @@ func processCsv(c *cli.Context) {
 
 func (csv *CsvParser) parse() {
 	if ok, err := csv.hasArgs(); ok {
-		csv.processArguments()
+		go csv.processArguments()
 
 		go func() {
-			for {
-				csv.parseToInterface(<-csv.RawChan)
-				csv.RawSync.Done()
+			for rawFile := range csv.RawChan {
+				csv.parseToInterface(rawFile)
 			}
+			close(csv.DataChannel)
 		}()
-
-		csv.RawSync.Wait()
-
 	} else {
 		fmt.Println(err)
 	}
 }
 
-func (csv *CsvParser) parseToInterface(raw [][]byte) {
-	cif := ciface.NewParser(raw[1])
+func (csv *CsvParser) parseToInterface(raw *RawFile) {
+	cif := ciface.NewParser(raw.data)
 	cif.Skip = csv.context.Int("skip")
 
 	if header := csv.context.String("header"); header != "" {
@@ -127,13 +124,8 @@ func (csv *CsvParser) parseToInterface(raw [][]byte) {
 
 	// push the docs onto the data channel
 	for _, doc := range docs {
-		doc, err = csv.parseFileName(string(raw[0]), doc)
-		csv.WaitGroup.Add(1)
-
-		go func(d interface{}) {
-			csv.DataChannel <- d
-		}(doc)
-
+		doc, err = csv.parseFileName(raw.name, doc)
+		csv.DataChannel <- doc
 	}
 
 	if err != nil {

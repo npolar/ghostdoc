@@ -9,25 +9,28 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"sync"
 
 	"github.com/npolar/ghostdoc/context"
 )
 
+// RawFile typedef
+type RawFile struct {
+	name string
+	data []byte
+}
+
 // ArgumentHandler typdef
 type ArgumentHandler struct {
 	context context.GhostContext
-	RawChan chan [][]byte
-	RawSync *sync.WaitGroup
+	RawChan chan *RawFile
 	TypeHandler
 }
 
 // NewArgumentHandler factory
-func NewArgumentHandler(c context.GhostContext, raw chan [][]byte) *ArgumentHandler {
+func NewArgumentHandler(c context.GhostContext, raw chan *RawFile) *ArgumentHandler {
 	return &ArgumentHandler{
 		context: c,
 		RawChan: raw,
-		RawSync: &sync.WaitGroup{},
 	}
 }
 
@@ -94,6 +97,7 @@ func (a *ArgumentHandler) processArguments() {
 			a.handleInput(argument)
 		}
 	}
+	close(a.RawChan)
 }
 
 func (a *ArgumentHandler) hasPipe() bool {
@@ -103,10 +107,10 @@ func (a *ArgumentHandler) hasPipe() bool {
 
 func (a *ArgumentHandler) handleInput(argument string) {
 	if a.rawInput(argument) {
-		data := make([][]byte, 2)
-		data[0] = []byte(a.context.GlobalString("filename"))
-		data[1] = []byte(argument)
-		a.RawSync.Add(1)
+		data := &RawFile{
+			name: a.context.GlobalString("filename"),
+			data: []byte(argument),
+		}
 		a.RawChan <- data
 	} else {
 		a.handleDiskInput(argument, false)
@@ -139,13 +143,11 @@ func (a *ArgumentHandler) globDir(input string) {
 
 func (a *ArgumentHandler) handleFileInput(input string) {
 	if raw, err := ioutil.ReadFile(input); err == nil {
-		data := make([][]byte, 2)
-		data[0] = []byte(input)
-		data[1] = raw
-		a.RawSync.Add(1)
-		go func() {
-			a.RawChan <- data
-		}()
+		data := &RawFile{
+			name: input,
+			data: raw,
+		}
+		a.RawChan <- data
 	} else {
 		log.Println("[File Error]", err)
 	}
