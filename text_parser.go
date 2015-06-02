@@ -7,19 +7,22 @@ import (
 	"sync"
 
 	"github.com/codegangsta/cli"
+	"github.com/npolar/ghostdoc/context"
 )
 
 const (
 	newlineRegex = `\n|\r\n|\n\r$`
 )
 
+// TextParser typedef
 type TextParser struct {
-	Cli         *cli.Context
+	context     context.GhostContext
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
 	*ArgumentHandler
 }
 
+// TextCommand cli.Command for parsing text
 func TextCommand() cli.Command {
 	return cli.Command{
 		Name:    "text",
@@ -39,9 +42,10 @@ func TextCommand() cli.Command {
 	}
 }
 
-func NewTextParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *TextParser {
+// NewTextParser factory
+func NewTextParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) *TextParser {
 	parser := &TextParser{
-		Cli:         c,
+		context:     c,
 		DataChannel: dc,
 		WaitGroup:   wg,
 	}
@@ -59,12 +63,14 @@ func processText(c *cli.Context) {
 	var textChan = make(chan interface{})
 	wg := &sync.WaitGroup{}
 
+	context := context.NewCliContext(c)
+
 	// Initialize a new parser and parse the input
-	parser := NewTextParser(c, textChan, wg)
+	parser := NewTextParser(context, textChan, wg)
 	parser.parse()
 
 	// Setup the writer for output handling
-	writer := NewWriter(c, textChan, wg)
+	writer := NewWriter(context, textChan, wg)
 	if err := writer.Write(); err != nil {
 		log.Println(err.Error())
 	}
@@ -94,7 +100,7 @@ func (tp *TextParser) parseToInterface(raw [][]byte) {
 	var textIface interface{}
 
 	text := tp.replaceNewLines(raw[1], " ")
-	dataMap[tp.Cli.String("key")] = strings.TrimSpace(string(text))
+	dataMap[tp.context.String("key")] = strings.TrimSpace(string(text))
 	textIface = dataMap
 
 	//	textIface, err := tp.parseFileName(fname, textIface)

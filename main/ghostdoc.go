@@ -9,10 +9,10 @@ import (
 )
 
 func main() {
-	InitGhostDoc()
+	initGhostDoc().Run(os.Args)
 }
 
-func InitGhostDoc() {
+func initGhostDoc() *cli.App {
 	ghostdoc := cli.NewApp()
 	ghostdoc.Name = "ghostdoc"
 	ghostdoc.Version = "0.0.1"
@@ -20,7 +20,7 @@ func InitGhostDoc() {
 	ghostdoc.Flags = configureFlags()
 	ghostdoc.Action = processDocs
 	ghostdoc.Commands = defineCommands()
-	ghostdoc.Run(os.Args)
+	return ghostdoc
 }
 
 func configureFlags() []cli.Flag {
@@ -106,7 +106,7 @@ func configureFlags() []cli.Flag {
 func defineCommands() []cli.Command {
 	return []cli.Command{
 		ghostdoc.CsvCommand(),
-		ghostdoc.JsonCommand(),
+		ghostdoc.JSONCommand(),
 		ghostdoc.TextCommand(),
 	}
 

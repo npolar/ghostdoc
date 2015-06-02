@@ -1,54 +1,88 @@
 package ghostdoc
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"sync"
 
-	"github.com/codegangsta/cli"
+	"github.com/npolar/ghostdoc/context"
 )
 
-// TypeHandler interface used to check filetypes
-type TypeHandler interface {
-	rawInput(string) bool
-	supportedFile(string) bool
-}
-
+// ArgumentHandler typdef
 type ArgumentHandler struct {
-	Cli     *cli.Context
+	context context.GhostContext
 	RawChan chan [][]byte
 	RawSync *sync.WaitGroup
 	TypeHandler
 }
 
-func NewArgumentHandler(c *cli.Context, raw chan [][]byte) *ArgumentHandler {
+// NewArgumentHandler factory
+func NewArgumentHandler(c context.GhostContext, raw chan [][]byte) *ArgumentHandler {
 	return &ArgumentHandler{
-		Cli:     c,
+		context: c,
 		RawChan: raw,
 		RawSync: &sync.WaitGroup{},
 	}
 }
 
-// hasArgs checks if any commandline arguments where provided
+// HasArgs checks if any commandline arguments where provided
 func (a *ArgumentHandler) hasArgs() (bool, error) {
-	if len(a.Cli.Args()) == 0 && !a.hasPipe() {
-		return false, errors.New("[Argument Error] Called without arguments: " + a.Cli.App.Name + " -h for usage info.")
+	if len(a.context.Args()) == 0 && !a.hasPipe() {
+		return false, errors.New("[Argument Error] Called without arguments: " + a.context.Cli().App.Name + " -h for usage info.")
 	}
 
 	return true, nil
 }
 
-func (a *ArgumentHandler) hasPipe() bool {
-	fi, err := os.Stdin.Stat()
-	return !(fi.Mode()&os.ModeNamedPipe == 0) && err == nil
+// ParseFileName handles meta data extraction from filenames. It reads the pattern
+// file specified with the --name-pattern argument and parses the filename according
+func (a *ArgumentHandler) parseFileName(fname string, doc interface{}) (interface{}, error) {
+	var err error
+	if pat := a.context.GlobalString("name-pattern"); pat != "" {
+		var pattern = make(map[string]interface{})
+		var pdoc []byte
+		if pdoc, err = ioutil.ReadFile(pat); err != nil {
+			pdoc = []byte(pat)
+		}
+
+		if err = json.Unmarshal(pdoc, &pattern); err == nil {
+			if pRgx := regexp.MustCompile(pattern["pattern"].(string)); pRgx.MatchString(fname) {
+				matches := pRgx.FindStringSubmatch(fname)
+				outputB, _ := json.Marshal(pattern["output"])
+				output := string(outputB)
+
+				// Replace the %<count> indicators in the output with the matching capture
+				for i, match := range matches {
+					rxp := regexp.MustCompile("(%" + strconv.Itoa(i) + ")")
+					output = rxp.ReplaceAllString(output, match)
+				}
+
+				var jsonData map[string]interface{}
+				if err := json.Unmarshal([]byte(output), &jsonData); err == nil {
+					for key, val := range jsonData {
+						doc.(map[string]interface{})[key] = val
+					}
+				}
+			}
+		}
+	}
+
+	if err != nil {
+		err = errors.New("name-pattern: " + err.Error())
+	}
+
+	return doc, err
 }
 
-// processArguments loops through all arguments and calls input handling
+// ProcessArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
-	if a.Cli.GlobalBool("quiet") {
+	if a.context.GlobalBool("quiet") {
 		log.SetOutput(ioutil.Discard)
 	}
 
@@ -56,16 +90,21 @@ func (a *ArgumentHandler) processArguments() {
 		bytes, _ := ioutil.ReadAll(os.Stdin)
 		a.handleInput(string(bytes))
 	} else {
-		for _, argument := range a.Cli.Args() {
+		for _, argument := range a.context.Args() {
 			a.handleInput(argument)
 		}
 	}
 }
 
+func (a *ArgumentHandler) hasPipe() bool {
+	fi, err := os.Stdin.Stat()
+	return !(fi.Mode()&os.ModeNamedPipe == 0) && err == nil
+}
+
 func (a *ArgumentHandler) handleInput(argument string) {
 	if a.rawInput(argument) {
 		data := make([][]byte, 2)
-		data[0] = []byte(a.Cli.GlobalString("filename"))
+		data[0] = []byte(a.context.GlobalString("filename"))
 		data[1] = []byte(argument)
 		a.RawSync.Add(1)
 		a.RawChan <- data
@@ -91,7 +130,7 @@ func (a *ArgumentHandler) handleDiskInput(argument string, recursive bool) {
 func (a *ArgumentHandler) globDir(input string) {
 	if dirList, err := ioutil.ReadDir(input); err == nil {
 		for _, item := range dirList {
-			a.handleDiskInput(input+"/"+item.Name(), a.Cli.GlobalBool("recursive"))
+			a.handleDiskInput(input+"/"+item.Name(), a.context.GlobalBool("recursive"))
 		}
 	} else {
 		log.Println("[Argument Error]", err)
@@ -116,17 +155,17 @@ func (a *ArgumentHandler) configuration(input string) bool {
 	configuration := false
 
 	// Grab both global and sub flags
-	flags := a.Cli.GlobalFlagNames()
-	flags = append(flags, a.Cli.FlagNames()...)
+	flags := a.context.Cli().GlobalFlagNames()
+	flags = append(flags, a.context.FlagNames()...)
 
 	// Check if the flag matches the input value
 	for _, flag := range flags {
 		if !configuration {
-			if val := a.Cli.GlobalString(flag); val != "" {
+			if val := a.context.String(flag); val != "" {
 				configuration = a.sourceCompare(input, val)
 			}
 
-			if val := a.Cli.String(flag); val != "" {
+			if val := a.context.GlobalString(flag); val != "" {
 				configuration = a.sourceCompare(input, val)
 			}
 		}

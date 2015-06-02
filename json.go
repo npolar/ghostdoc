@@ -8,20 +8,22 @@ const (
 	jsonFileRegex = `(?i)^.+\.json|geojson|topojson$`
 )
 
-type JsonHandler struct{}
+// JSONHandler typedef
+type JSONHandler struct{}
 
-func NewJsonHandler() *JsonHandler {
-	return &JsonHandler{}
+// NewJSONHandler factory
+func NewJSONHandler() *JSONHandler {
+	return &JSONHandler{}
 }
 
 // rawInput does a lazy check for raw inline input and returns true if matches
-func (j *JsonHandler) rawInput(argument string) bool {
-	rawJson := regexp.MustCompile(`(?m)^\[|{\".+\":.+}|]$`)
-	return rawJson.MatchString(argument)
+func (j *JSONHandler) rawInput(argument string) bool {
+	rawJSON := regexp.MustCompile(`(?m)^\[|{\".+\":.+}|]$`)
+	return rawJSON.MatchString(argument)
 }
 
 // supportedFile returns true if the filename meets the requirements
-func (j *JsonHandler) supportedFile(filename string) bool {
+func (j *JSONHandler) supportedFile(filename string) bool {
 	jsonFile := regexp.MustCompile(jsonFileRegex)
 	return jsonFile.MatchString(filename)
 }

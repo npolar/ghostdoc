@@ -6,10 +6,12 @@ const (
 	csvExtRegex = `(?i)^.+\.csv|tsv|txt`
 )
 
+// CsvHandler typedef
 type CsvHandler struct {
 	Delimiter string
 }
 
+// NewCsvHandler factory
 func NewCsvHandler(delimiter string) *CsvHandler {
 	return &CsvHandler{
 		Delimiter: delimiter,

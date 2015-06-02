@@ -8,8 +8,10 @@ const (
 	textFileRegex = `(?i)^.+\.txt$`
 )
 
+// TextHandler typedef
 type TextHandler struct{}
 
+// NewTextHandler factory
 func NewTextHandler() *TextHandler {
 	return &TextHandler{}
 }

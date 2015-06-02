@@ -3,7 +3,6 @@ package ghostdoc
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,33 +12,29 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/npolar/ghostdoc/context"
+	"github.com/npolar/ghostdoc/util"
+
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/codegangsta/cli"
 )
 
 const (
 	jsonRegex = `^\{\".+\"\:.+\}$`
 )
 
-type mapper func(data map[string]interface{}) (map[string]interface{}, error)
-
 // Writer type definition
 type Writer struct {
-	Cli         *cli.Context
+	context     context.GhostContext
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
-	Js          *Js
-	Validator   *Validator
 }
 
 // NewWriter initialises a new Writer and return a pointer to it
-func NewWriter(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Writer {
+func NewWriter(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) *Writer {
 	return &Writer{
-		Cli:         c,
+		context:     c,
 		DataChannel: dc,
 		WaitGroup:   wg,
-		Js:          NewJs(c),
-		Validator:   NewValidator(c),
 	}
 }
 
@@ -52,16 +47,15 @@ func (w *Writer) Write() error {
 		for {
 			data := <-w.DataChannel
 			dataMap := data.(map[string]interface{})
-			dataMap, err = w.applyMappers(dataMap)
 
-			if err == nil {
-				err = w.Validator.validate(dataMap)
-			}
+			dataMap, err = w.excludeKeys(dataMap)
+			dataMap, err = w.mapKeys(dataMap)
+			dataMap, err = w.mergeData(dataMap)
+			dataMap, err = w.wrapData(dataMap)
+			dataMap, err = w.injectUUID(dataMap)
 
 			if err == nil {
 				err = w.publishData(dataMap)
-			} else {
-				log.Println(err.Error())
 			}
 
 			w.WaitGroup.Done()
@@ -71,47 +65,11 @@ func (w *Writer) Write() error {
 	return err
 }
 
-func (w *Writer) applyMappers(dataMap map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	mappers := []mapper{
-		w.includeKeys,
-		w.excludeKeys,
-		w.mapKeys,
-		w.mergeData,
-		w.wrapData,
-		w.injectUUID,
-		w.Js.runJs}
-
-	for _, fn := range mappers {
-		dataMap, err = fn(dataMap)
-		if err != nil {
-			err = errors.New("[Writer error] " + err.Error())
-			break
-		}
-	}
-	return dataMap, err
-}
-
-func (w *Writer) includeKeys(data map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	includeData := data
-
-	if includes := w.Cli.GlobalString("include"); includes != "" {
-		includesSlice := stringSlice(includes)
-		includeData = make(map[string]interface{})
-		for _, key := range includesSlice {
-			includeData[key] = data[key]
-		}
-	}
-
-	return includeData, err
-}
-
 func (w *Writer) excludeKeys(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if excludes := w.Cli.GlobalString("exclude"); excludes != "" {
-		excludesSlice := stringSlice(excludes)
+	if excludes := w.context.String("exclude"); excludes != "" {
+		excludesSlice := util.StringToSlice(excludes)
 		for _, key := range excludesSlice {
 			delete(data, key)
 		}
@@ -124,7 +82,7 @@ func (w *Writer) mapKeys(data map[string]interface{}) (map[string]interface{}, e
 	var err error
 	dataMap := data
 
-	if keyMap := w.Cli.GlobalString("key-map"); keyMap != "" {
+	if keyMap := w.context.GlobalString("key-map"); keyMap != "" {
 		if mapping, mapErr := w.readData(keyMap); mapErr == nil {
 			for key, val := range mapping {
 				dataMap[val.(string)] = dataMap[key]
@@ -141,9 +99,9 @@ func (w *Writer) mapKeys(data map[string]interface{}) (map[string]interface{}, e
 func (w *Writer) wrapData(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if wrap := w.Cli.GlobalString("wrapper"); wrap != "" {
+	if wrap := w.context.GlobalString("wrapper"); wrap != "" {
 		if wrapper, dataErr := w.readData(wrap); dataErr == nil {
-			key := w.Cli.GlobalString("payload-key")
+			key := w.context.GlobalString("payload-key")
 			wrapper[key] = data
 			data = wrapper
 		} else {
@@ -157,7 +115,7 @@ func (w *Writer) wrapData(data map[string]interface{}) (map[string]interface{}, 
 func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if merge := w.Cli.GlobalString("merge"); merge != "" {
+	if merge := w.context.GlobalString("merge"); merge != "" {
 		if padding, dataError := w.readData(merge); dataError == nil {
 
 			for key, val := range padding {
@@ -173,21 +131,9 @@ func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{},
 
 func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
-	keys := w.Cli.GlobalString("uuid-keys")
 
-	if w.Cli.GlobalBool("uuid") || keys != "" {
-		idData := data
-		if keys != "" {
-			idData = make(map[string]interface{})
-			keysSlice := stringSlice(keys)
-			for _, key := range keysSlice {
-				var ok bool
-				if idData[key], ok = data[key]; !ok {
-					return data, errors.New("Could not build UUID on key: " + key)
-				}
-			}
-		}
-		if doc, jsonError := json.Marshal(idData); jsonError == nil {
+	if w.context.GlobalBool("uuid") {
+		if doc, jsonError := json.Marshal(data); jsonError == nil {
 			data["id"] = w.generateUUID(doc)
 		} else {
 			err = jsonError
@@ -207,7 +153,7 @@ func (w *Writer) generateUUID(input []byte) string {
 func (w *Writer) createOutputDir() error {
 	var err error
 
-	if output := w.Cli.GlobalString("output"); output != "" {
+	if output := w.context.GlobalString("output"); output != "" {
 		if state, statErr := os.Stat(output); state == nil {
 			err = os.Mkdir(output, 0755)
 		} else {
@@ -246,7 +192,7 @@ func (w *Writer) publishData(data map[string]interface{}) error {
 func (w *Writer) writeFile(doc []byte, id string) error {
 	var err error
 
-	if output := w.Cli.GlobalString("output"); output != "" {
+	if output := w.context.GlobalString("output"); output != "" {
 		if path, pathErr := filepath.Abs(output); pathErr == nil {
 			err = ioutil.WriteFile(path+"/"+id+".json", doc, 0755)
 		} else {
@@ -262,18 +208,18 @@ func (w *Writer) writeFile(doc []byte, id string) error {
 func (w *Writer) httpRequest(doc []byte, id string) error {
 	var err error
 
-	if addr := w.Cli.GlobalString("address"); addr != "" {
+	if addr := w.context.GlobalString("address"); addr != "" {
 		if uri, uriErr := url.Parse(addr); uriErr == nil {
 			client := &http.Client{}
 
 			byteReader := bytes.NewReader(doc)
 
-			if req, httpErr := http.NewRequest(w.Cli.GlobalString("http-verb"), uri.String(), byteReader); httpErr == nil {
+			if req, httpErr := http.NewRequest(w.context.GlobalString("http-verb"), uri.String(), byteReader); httpErr == nil {
 				req.Header.Set("Content-Type", "application/json")
 				resp, reqErr := client.Do(req)
 				err = reqErr
 
-				log.Println("HTTP", w.Cli.GlobalString("http-verb"), "Response:", resp.Status)
+				log.Println("HTTP", w.context.GlobalString("http-verb"), "Response:", resp.Status)
 			} else {
 				err = httpErr
 			}

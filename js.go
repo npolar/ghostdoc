@@ -4,25 +4,27 @@ import (
 	"errors"
 	"io/ioutil"
 
-	"github.com/codegangsta/cli"
+	"github.com/npolar/ghostdoc/context"
 	"github.com/robertkrimen/otto"
 )
 
+// Js typedef
 type Js struct {
-	Cli *cli.Context
-	vm  *otto.Otto
+	context context.GhostContext
+	vm      *otto.Otto
 }
 
-func NewJs(c *cli.Context) *Js {
+// NewJs factory
+func NewJs(c context.GhostContext) *Js {
 	return &Js{
-		Cli: c,
-		vm:  otto.New(),
+		context: c,
+		vm:      otto.New(),
 	}
 }
 
 func (js *Js) runJs(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
-	if flag := js.Cli.GlobalString("js"); flag != "" {
+	if flag := js.context.GlobalString("js"); flag != "" {
 		if err = js.runCode(flag); err == nil {
 			data, err = js.runFunctions(data)
 		}

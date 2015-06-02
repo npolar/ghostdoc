@@ -1,8 +1,9 @@
-package ghostdoc
+package util
 
 import "strings"
 
-func stringSlice(str string) []string {
+// StringToSlice splits string on "," removing leading and trailing whitespace
+func StringToSlice(str string) []string {
 	slice := strings.Split(str, ",")
 	for i, key := range slice {
 		slice[i] = strings.TrimSpace(key)

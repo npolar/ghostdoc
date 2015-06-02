@@ -9,10 +9,13 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ciface"
+	"github.com/npolar/ghostdoc/context"
+	"github.com/npolar/ghostdoc/util"
 )
 
+// CsvParser typedef
 type CsvParser struct {
-	Cli         *cli.Context
+	context     context.GhostContext
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
 	*ArgumentHandler
@@ -47,9 +50,9 @@ func CsvCommand() cli.Command {
 	}
 }
 
-func newCsvParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *CsvParser {
+func newCsvParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) *CsvParser {
 	parser := &CsvParser{
-		Cli:         c,
+		context:     c,
 		DataChannel: dc,
 		WaitGroup:   wg,
 	}
@@ -69,10 +72,12 @@ func processCsv(c *cli.Context) {
 	var csvChan = make(chan interface{})
 	wg := &sync.WaitGroup{}
 
-	csvParser := newCsvParser(c, csvChan, wg)
+	context := context.NewCliContext(c)
+
+	csvParser := newCsvParser(context, csvChan, wg)
 	csvParser.parse()
 
-	writer := NewWriter(c, csvChan, wg)
+	writer := NewWriter(context, csvChan, wg)
 	if err := writer.Write(); err != nil {
 		log.Println(err.Error())
 	}
@@ -100,28 +105,28 @@ func (csv *CsvParser) parse() {
 
 func (csv *CsvParser) parseToInterface(raw [][]byte) {
 	cif := ciface.NewParser(raw[1])
-	cif.Skip = csv.Cli.Int("skip")
+	cif.Skip = csv.context.Int("skip")
 
-	if header := csv.Cli.String("header"); header != "" {
+	if header := csv.context.String("header"); header != "" {
 		hfile, err := ioutil.ReadFile(header)
 		if err != nil {
-			cif.Header = stringSlice(csv.Cli.String("header"))
+			cif.Header = util.StringToSlice(header)
 		} else {
-			cif.Header = stringSlice(string(hfile))
+			cif.Header = util.StringToSlice(string(hfile))
 		}
 	}
 
-	delimiterRune, _, _, _ := strconv.UnquoteChar(csv.Cli.String("delimiter"), '"')
+	delimiterRune, _, _, _ := strconv.UnquoteChar(csv.context.String("delimiter"), '"')
 	cif.Reader.Comma = delimiterRune
 
-	commentRune, _, _, _ := strconv.UnquoteChar(csv.Cli.String("comment"), '"')
+	commentRune, _, _, _ := strconv.UnquoteChar(csv.context.String("comment"), '"')
 	cif.Reader.Comment = commentRune
 
 	docs, err := cif.Parse()
 
 	// push the docs onto the data channel
 	for _, doc := range docs {
-		doc, err = parseFileName(csv.Cli, string(raw[0]), doc)
+		doc, err = csv.parseFileName(string(raw[0]), doc)
 		csv.WaitGroup.Add(1)
 
 		go func(d interface{}) {

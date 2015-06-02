@@ -6,16 +6,19 @@ import (
 	"sync"
 
 	"github.com/codegangsta/cli"
+	"github.com/npolar/ghostdoc/context"
 )
 
-type JsonParser struct {
-	Cli         *cli.Context
+// JSONParser typedef
+type JSONParser struct {
+	context     context.GhostContext
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
 	*ArgumentHandler
 }
 
-func JsonCommand() cli.Command {
+// JSONCommand cli.Command for JSON parsing
+func JSONCommand() cli.Command {
 	return cli.Command{
 		Name:  "json",
 		Usage: "parse json files",
@@ -29,13 +32,14 @@ func JsonCommand() cli.Command {
 				Usage: "rename keys. Format: '{\"oldKey\": \"newKey\"}'",
 			},
 		},
-		Action: processJson,
+		Action: processJSON,
 	}
 }
 
-func NewJsonParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *JsonParser {
-	parser := &JsonParser{
-		Cli:         c,
+// NewJSONParser factory
+func NewJSONParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) *JSONParser {
+	parser := &JSONParser{
+		context:     c,
 		DataChannel: dc,
 		WaitGroup:   wg,
 	}
@@ -44,19 +48,21 @@ func NewJsonParser(c *cli.Context, dc chan interface{}, wg *sync.WaitGroup) *Jso
 	inputChan := make(chan [][]byte, c.GlobalInt("concurrency"))
 	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
 	// Customize the argument handler to relate to json values
-	parser.TypeHandler = &JsonHandler{}
+	parser.TypeHandler = &JSONHandler{}
 
 	return parser
 }
 
-func processJson(c *cli.Context) {
+func processJSON(c *cli.Context) {
 	var jsonChan = make(chan interface{})
 	wg := &sync.WaitGroup{}
 
-	parser := NewJsonParser(c, jsonChan, wg)
+	context := context.NewCliContext(c)
+
+	parser := NewJSONParser(context, jsonChan, wg)
 	parser.parse()
 
-	writer := NewWriter(c, jsonChan, wg)
+	writer := NewWriter(context, jsonChan, wg)
 	if err := writer.Write(); err != nil {
 		log.Println(err.Error())
 	}
@@ -64,7 +70,7 @@ func processJson(c *cli.Context) {
 	wg.Wait()
 }
 
-func (jsp *JsonParser) parse() {
+func (jsp *JSONParser) parse() {
 	if ok, err := jsp.hasArgs(); ok {
 		jsp.processArguments()
 
@@ -82,11 +88,11 @@ func (jsp *JsonParser) parse() {
 }
 
 // parseToInterface reads the raw json data and converts it to an interface{}
-func (jsp *JsonParser) parseToInterface(raw [][]byte) {
+func (jsp *JSONParser) parseToInterface(raw [][]byte) {
 	var jsonData interface{}
 
 	if err := json.Unmarshal(raw[1], &jsonData); err == nil {
-		if jsonData, err = parseFileName(jsp.Cli, string(raw[0]), jsonData); err != nil {
+		if jsonData, err = jsp.parseFileName(string(raw[0]), jsonData); err != nil {
 			log.Println("[JSON] Filename parsing error!", err)
 			return
 		}
