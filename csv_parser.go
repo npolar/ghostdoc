@@ -74,13 +74,14 @@ func processCsv(c *cli.Context) {
 
 	context := context.NewCliContext(c)
 
+	writer := NewWriter(context, csvChan, wg)
+	if err := writer.Write(); err != nil {
+		panic(err.Error())
+	}
+
 	csvParser := newCsvParser(context, csvChan, wg)
 	csvParser.parse()
 
-	writer := NewWriter(context, csvChan, wg)
-	if err := writer.Write(); err != nil {
-		log.Println(err.Error())
-	}
 	// Wait for all go routines to finish before exiting
 	wg.Wait()
 }

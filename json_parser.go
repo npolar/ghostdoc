@@ -59,13 +59,14 @@ func processJSON(c *cli.Context) {
 
 	context := context.NewCliContext(c)
 
+	writer := NewWriter(context, jsonChan, wg)
+	if err := writer.Write(); err != nil {
+		panic(err.Error())
+	}
+
 	parser := NewJSONParser(context, jsonChan, wg)
 	parser.parse()
 
-	writer := NewWriter(context, jsonChan, wg)
-	if err := writer.Write(); err != nil {
-		log.Println(err.Error())
-	}
 	// Wait for all go routines to finish before exiting
 	wg.Wait()
 }

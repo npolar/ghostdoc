@@ -3,6 +3,7 @@ package ghostdoc
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,21 +13,24 @@ import (
 	"regexp"
 	"sync"
 
+	"code.google.com/p/go-uuid/uuid"
 	"github.com/npolar/ghostdoc/context"
 	"github.com/npolar/ghostdoc/util"
-
-	"code.google.com/p/go-uuid/uuid"
 )
 
 const (
 	jsonRegex = `^\{\".+\"\:.+\}$`
 )
 
+type mapper func(data map[string]interface{}) (map[string]interface{}, error)
+
 // Writer type definition
 type Writer struct {
 	context     context.GhostContext
 	DataChannel chan interface{}
 	WaitGroup   *sync.WaitGroup
+	Js          *Js
+	Validator   *Validator
 }
 
 // NewWriter initialises a new Writer and return a pointer to it
@@ -35,6 +39,8 @@ func NewWriter(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) 
 		context:     c,
 		DataChannel: dc,
 		WaitGroup:   wg,
+		Js:          NewJs(c),
+		Validator:   NewValidator(c),
 	}
 }
 
@@ -47,15 +53,16 @@ func (w *Writer) Write() error {
 		for {
 			data := <-w.DataChannel
 			dataMap := data.(map[string]interface{})
+			dataMap, err = w.applyMappers(dataMap)
 
-			dataMap, err = w.excludeKeys(dataMap)
-			dataMap, err = w.mapKeys(dataMap)
-			dataMap, err = w.mergeData(dataMap)
-			dataMap, err = w.wrapData(dataMap)
-			dataMap, err = w.injectUUID(dataMap)
+			if err == nil {
+				err = w.Validator.validate(dataMap)
+			}
 
 			if err == nil {
 				err = w.publishData(dataMap)
+			} else {
+				log.Println(err.Error())
 			}
 
 			w.WaitGroup.Done()
@@ -65,10 +72,46 @@ func (w *Writer) Write() error {
 	return err
 }
 
+func (w *Writer) applyMappers(dataMap map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	mappers := []mapper{
+		w.includeKeys,
+		w.excludeKeys,
+		w.mapKeys,
+		w.mergeData,
+		w.wrapData,
+		w.injectUUID,
+		w.Js.runJs}
+
+	for _, fn := range mappers {
+		dataMap, err = fn(dataMap)
+		if err != nil {
+			err = errors.New("[Writer error] " + err.Error())
+			break
+		}
+	}
+	return dataMap, err
+}
+
+func (w *Writer) includeKeys(data map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	includeData := data
+
+	if includes := w.context.GlobalString("include"); includes != "" {
+		includesSlice := util.StringToSlice(includes)
+		includeData = make(map[string]interface{})
+		for _, key := range includesSlice {
+			includeData[key] = data[key]
+		}
+	}
+
+	return includeData, err
+}
+
 func (w *Writer) excludeKeys(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 
-	if excludes := w.context.String("exclude"); excludes != "" {
+	if excludes := w.context.GlobalString("exclude"); excludes != "" {
 		excludesSlice := util.StringToSlice(excludes)
 		for _, key := range excludesSlice {
 			delete(data, key)
@@ -131,9 +174,21 @@ func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{},
 
 func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
+	keys := w.context.GlobalString("uuid-keys")
 
-	if w.context.GlobalBool("uuid") {
-		if doc, jsonError := json.Marshal(data); jsonError == nil {
+	if w.context.GlobalBool("uuid") || keys != "" {
+		idData := data
+		if keys != "" {
+			idData = make(map[string]interface{})
+			keysSlice := util.StringToSlice(keys)
+			for _, key := range keysSlice {
+				var ok bool
+				if idData[key], ok = data[key]; !ok {
+					return data, errors.New("Could not build UUID on key: " + key)
+				}
+			}
+		}
+		if doc, jsonError := json.Marshal(idData); jsonError == nil {
 			data["id"] = w.generateUUID(doc)
 		} else {
 			err = jsonError
@@ -216,10 +271,11 @@ func (w *Writer) httpRequest(doc []byte, id string) error {
 
 			if req, httpErr := http.NewRequest(w.context.GlobalString("http-verb"), uri.String(), byteReader); httpErr == nil {
 				req.Header.Set("Content-Type", "application/json")
-				resp, reqErr := client.Do(req)
-				err = reqErr
+				var resp *http.Response
+				if resp, err = client.Do(req); err == nil {
+					log.Println("HTTP", w.context.GlobalString("http-verb"), "Response:", resp.Status)
+				}
 
-				log.Println("HTTP", w.context.GlobalString("http-verb"), "Response:", resp.Status)
 			} else {
 				err = httpErr
 			}

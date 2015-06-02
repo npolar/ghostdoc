@@ -65,15 +65,16 @@ func processText(c *cli.Context) {
 
 	context := context.NewCliContext(c)
 
+	// Setup the writer for output handling
+	writer := NewWriter(context, textChan, wg)
+	if err := writer.Write(); err != nil {
+		panic(err.Error())
+	}
+
 	// Initialize a new parser and parse the input
 	parser := NewTextParser(context, textChan, wg)
 	parser.parse()
 
-	// Setup the writer for output handling
-	writer := NewWriter(context, textChan, wg)
-	if err := writer.Write(); err != nil {
-		log.Println(err.Error())
-	}
 	// Wait for all go routines to finish before exiting
 	wg.Wait()
 }
