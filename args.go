@@ -1,20 +1,16 @@
 package ghostdoc
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 
 	"github.com/npolar/ghostdoc/context"
 )
 
-// RawFile typedef
-type RawFile struct {
+type rawFile struct {
 	name string
 	data []byte
 }
@@ -22,12 +18,12 @@ type RawFile struct {
 // ArgumentHandler typdef
 type ArgumentHandler struct {
 	context context.GhostContext
-	RawChan chan *RawFile
+	RawChan chan *rawFile
 	TypeHandler
 }
 
 // NewArgumentHandler factory
-func NewArgumentHandler(c context.GhostContext, raw chan *RawFile) *ArgumentHandler {
+func NewArgumentHandler(c context.GhostContext, raw chan *rawFile) *ArgumentHandler {
 	return &ArgumentHandler{
 		context: c,
 		RawChan: raw,
@@ -43,61 +39,22 @@ func (a *ArgumentHandler) hasArgs() (bool, error) {
 	return true, nil
 }
 
-// ParseFileName handles meta data extraction from filenames. It reads the pattern
-// file specified with the --name-pattern argument and parses the filename according
-func (a *ArgumentHandler) parseFileName(fname string, doc interface{}) (interface{}, error) {
-	var err error
-	if pat := a.context.GlobalString("name-pattern"); pat != "" {
-		var pattern = make(map[string]interface{})
-		var pdoc []byte
-		if pdoc, err = ioutil.ReadFile(pat); err != nil {
-			pdoc = []byte(pat)
-		}
-
-		if err = json.Unmarshal(pdoc, &pattern); err == nil {
-			if pRgx := regexp.MustCompile(pattern["pattern"].(string)); pRgx.MatchString(fname) {
-				matches := pRgx.FindStringSubmatch(fname)
-				outputB, _ := json.Marshal(pattern["output"])
-				output := string(outputB)
-
-				// Replace the %<count> indicators in the output with the matching capture
-				for i, match := range matches {
-					rxp := regexp.MustCompile("(%" + strconv.Itoa(i) + ")")
-					output = rxp.ReplaceAllString(output, match)
-				}
-
-				var jsonData map[string]interface{}
-				if err := json.Unmarshal([]byte(output), &jsonData); err == nil {
-					for key, val := range jsonData {
-						doc.(map[string]interface{})[key] = val
-					}
-				}
-			}
-		}
-	}
-
-	if err != nil {
-		err = errors.New("name-pattern: " + err.Error())
-	}
-
-	return doc, err
-}
-
 // ProcessArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
 	if a.context.GlobalBool("quiet") {
 		log.SetOutput(ioutil.Discard)
 	}
-
-	if a.hasPipe() {
-		bytes, _ := ioutil.ReadAll(os.Stdin)
-		a.handleInput(string(bytes))
-	} else {
-		for _, argument := range a.context.Args() {
-			a.handleInput(argument)
+	go func() {
+		if a.hasPipe() {
+			bytes, _ := ioutil.ReadAll(os.Stdin)
+			a.handleInput(string(bytes))
+		} else {
+			for _, argument := range a.context.Args() {
+				a.handleInput(argument)
+			}
 		}
-	}
-	close(a.RawChan)
+		close(a.RawChan)
+	}()
 }
 
 func (a *ArgumentHandler) hasPipe() bool {
@@ -107,7 +64,7 @@ func (a *ArgumentHandler) hasPipe() bool {
 
 func (a *ArgumentHandler) handleInput(argument string) {
 	if a.rawInput(argument) {
-		data := &RawFile{
+		data := &rawFile{
 			name: a.context.GlobalString("filename"),
 			data: []byte(argument),
 		}
@@ -143,7 +100,7 @@ func (a *ArgumentHandler) globDir(input string) {
 
 func (a *ArgumentHandler) handleFileInput(input string) {
 	if raw, err := ioutil.ReadFile(input); err == nil {
-		data := &RawFile{
+		data := &rawFile{
 			name: input,
 			data: raw,
 		}

@@ -16,7 +16,7 @@ import (
 // CsvParser typedef
 type CsvParser struct {
 	context     context.GhostContext
-	DataChannel chan interface{}
+	DataChannel chan *dataFile
 	WaitGroup   *sync.WaitGroup
 	*ArgumentHandler
 }
@@ -50,7 +50,7 @@ func CsvCommand() cli.Command {
 	}
 }
 
-func newCsvParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) *CsvParser {
+func newCsvParser(c context.GhostContext, dc chan *dataFile, wg *sync.WaitGroup) *CsvParser {
 	parser := &CsvParser{
 		context:     c,
 		DataChannel: dc,
@@ -58,7 +58,7 @@ func newCsvParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGrou
 	}
 
 	// Configure the argument handler and give it a channel for the raw data
-	rawChan := make(chan *RawFile, c.GlobalInt("concurrency"))
+	rawChan := make(chan *rawFile, c.GlobalInt("concurrency"))
 	parser.ArgumentHandler = NewArgumentHandler(c, rawChan)
 	// Customize the argument handler to relate to csv values
 	parser.TypeHandler = &CsvHandler{
@@ -69,7 +69,7 @@ func newCsvParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGrou
 }
 
 func processCsv(c *cli.Context) {
-	var dataChan = make(chan interface{}, c.GlobalInt("concurrency"))
+	var dataChan = make(chan *dataFile, c.GlobalInt("concurrency"))
 	wg := &sync.WaitGroup{}
 
 	context := context.NewCliContext(c)
@@ -88,7 +88,7 @@ func processCsv(c *cli.Context) {
 
 func (csv *CsvParser) parse() {
 	if ok, err := csv.hasArgs(); ok {
-		go csv.processArguments()
+		csv.processArguments()
 
 		go func() {
 			for rawFile := range csv.RawChan {
@@ -101,7 +101,7 @@ func (csv *CsvParser) parse() {
 	}
 }
 
-func (csv *CsvParser) parseToInterface(raw *RawFile) {
+func (csv *CsvParser) parseToInterface(raw *rawFile) {
 	cif := ciface.NewParser(raw.data)
 	cif.Skip = csv.context.Int("skip")
 
@@ -124,8 +124,10 @@ func (csv *CsvParser) parseToInterface(raw *RawFile) {
 
 	// push the docs onto the data channel
 	for _, doc := range docs {
-		doc, err = csv.parseFileName(raw.name, doc)
-		csv.DataChannel <- doc
+		csv.DataChannel <- &dataFile{
+			name: raw.name,
+			data: doc.(map[string]interface{}),
+		}
 	}
 
 	if err != nil {

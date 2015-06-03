@@ -12,7 +12,7 @@ import (
 // JSONParser typedef
 type JSONParser struct {
 	context     context.GhostContext
-	DataChannel chan interface{}
+	DataChannel chan *dataFile
 	WaitGroup   *sync.WaitGroup
 	*ArgumentHandler
 }
@@ -37,7 +37,7 @@ func JSONCommand() cli.Command {
 }
 
 // NewJSONParser factory
-func NewJSONParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) *JSONParser {
+func NewJSONParser(c context.GhostContext, dc chan *dataFile, wg *sync.WaitGroup) *JSONParser {
 	parser := &JSONParser{
 		context:     c,
 		DataChannel: dc,
@@ -45,8 +45,8 @@ func NewJSONParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGro
 	}
 
 	// Configure the argument handler and give it a channel for the raw data
-	inputChan := make(chan *RawFile, c.GlobalInt("concurrency"))
-	parser.ArgumentHandler = NewArgumentHandler(c, inputChan)
+	rawChan := make(chan *rawFile, c.GlobalInt("concurrency"))
+	parser.ArgumentHandler = NewArgumentHandler(c, rawChan)
 	// Customize the argument handler to relate to json values
 	parser.TypeHandler = &JSONHandler{}
 
@@ -54,17 +54,17 @@ func NewJSONParser(c context.GhostContext, dc chan interface{}, wg *sync.WaitGro
 }
 
 func processJSON(c *cli.Context) {
-	var jsonChan = make(chan interface{})
+	var dataChan = make(chan *dataFile, c.GlobalInt("concurrency"))
 	wg := &sync.WaitGroup{}
 
 	context := context.NewCliContext(c)
 
-	writer := NewWriter(context, jsonChan, wg)
+	writer := NewWriter(context, dataChan, wg)
 	if err := writer.listen(); err != nil {
 		panic(err.Error())
 	}
 
-	parser := NewJSONParser(context, jsonChan, wg)
+	parser := NewJSONParser(context, dataChan, wg)
 	parser.parse()
 
 	// Wait for all go routines to finish before exiting
@@ -76,9 +76,10 @@ func (jsp *JSONParser) parse() {
 		jsp.processArguments()
 
 		go func() {
-			for {
-				jsp.parseToInterface(<-jsp.RawChan)
+			for rawFile := range jsp.RawChan {
+				jsp.parseToInterface(rawFile)
 			}
+			close(jsp.DataChannel)
 		}()
 
 	} else {
@@ -87,18 +88,15 @@ func (jsp *JSONParser) parse() {
 }
 
 // parseToInterface reads the raw json data and converts it to an interface{}
-func (jsp *JSONParser) parseToInterface(raw *RawFile) {
+func (jsp *JSONParser) parseToInterface(raw *rawFile) {
 	var jsonData interface{}
 
 	if err := json.Unmarshal(raw.data, &jsonData); err == nil {
-		if jsonData, err = jsp.parseFileName(raw.name, jsonData); err != nil {
-			log.Println("[JSON] Filename parsing error!", err)
-			return
+		jsp.DataChannel <- &dataFile{
+			name: raw.name,
+			data: jsonData.(map[string]interface{}),
 		}
-		jsp.WaitGroup.Add(1)
-		go func(d interface{}) {
-			jsp.DataChannel <- d
-		}(jsonData)
+
 	} else {
 		log.Println("[JSON] Parsing error!", err)
 	}

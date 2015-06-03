@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"sync"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -24,17 +25,22 @@ const (
 
 type mapper func(data map[string]interface{}) (map[string]interface{}, error)
 
+type dataFile struct {
+	name string
+	data map[string]interface{}
+}
+
 // Writer type definition
 type Writer struct {
 	context     context.GhostContext
-	DataChannel chan interface{}
+	DataChannel chan *dataFile
 	WaitGroup   *sync.WaitGroup
 	Js          *Js
 	Validator   *Validator
 }
 
 // NewWriter initialises a new Writer and return a pointer to it
-func NewWriter(c context.GhostContext, dc chan interface{}, wg *sync.WaitGroup) *Writer {
+func NewWriter(c context.GhostContext, dc chan *dataFile, wg *sync.WaitGroup) *Writer {
 	return &Writer{
 		context:     c,
 		DataChannel: dc,
@@ -54,8 +60,12 @@ func (w *Writer) listen() error {
 	go func() {
 		for data := range w.DataChannel {
 			sem <- 1
-			go func(dataMap map[string]interface{}) {
-				dataMap, err = w.applyMappers(dataMap)
+			go func(dataMap map[string]interface{}, name string) {
+				dataMap, err = w.parseFileName(name, dataMap)
+
+				if err == nil {
+					dataMap, err = w.applyMappers(dataMap)
+				}
 
 				if err == nil {
 					err = w.Validator.validate(dataMap)
@@ -67,7 +77,7 @@ func (w *Writer) listen() error {
 					log.Println(err.Error())
 				}
 				<-sem
-			}(data.(map[string]interface{}))
+			}(data.data, data.name)
 		}
 		w.WaitGroup.Done()
 	}()
@@ -93,6 +103,46 @@ func (w *Writer) applyMappers(dataMap map[string]interface{}) (map[string]interf
 			break
 		}
 	}
+	return dataMap, err
+}
+
+// ParseFileName handles meta data extraction from filenames. It reads the pattern
+// file specified with the --name-pattern argument and parses the filename according
+func (w *Writer) parseFileName(fname string, dataMap map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	if pat := w.context.GlobalString("name-pattern"); pat != "" {
+		var pattern = make(map[string]interface{})
+		var pdoc []byte
+		if pdoc, err = ioutil.ReadFile(pat); err != nil {
+			pdoc = []byte(pat)
+		}
+
+		if err = json.Unmarshal(pdoc, &pattern); err == nil {
+			if pRgx := regexp.MustCompile(pattern["pattern"].(string)); pRgx.MatchString(fname) {
+				matches := pRgx.FindStringSubmatch(fname)
+				outputB, _ := json.Marshal(pattern["output"])
+				output := string(outputB)
+
+				// Replace the %<count> indicators in the output with the matching capture
+				for i, match := range matches {
+					rxp := regexp.MustCompile("(%" + strconv.Itoa(i) + ")")
+					output = rxp.ReplaceAllString(output, match)
+				}
+
+				var jsonData map[string]interface{}
+				if err := json.Unmarshal([]byte(output), &jsonData); err == nil {
+					for key, val := range jsonData {
+						dataMap[key] = val
+					}
+				}
+			}
+		}
+	}
+
+	if err != nil {
+		err = errors.New("name-pattern: " + err.Error())
+	}
+
 	return dataMap, err
 }
 
@@ -135,7 +185,7 @@ func (w *Writer) mapKeys(data map[string]interface{}) (map[string]interface{}, e
 				delete(dataMap, key)
 			}
 		} else {
-			err = mapErr
+			err = errors.New("mapKeys: " + err.Error())
 		}
 	}
 
