@@ -185,7 +185,7 @@ func (w *Writer) mapKeys(data map[string]interface{}) (map[string]interface{}, e
 				delete(dataMap, key)
 			}
 		} else {
-			err = errors.New("mapKeys: " + err.Error())
+			err = errors.New("mapKeys: " + mapErr.Error())
 		}
 	}
 
@@ -201,7 +201,7 @@ func (w *Writer) wrapData(data map[string]interface{}) (map[string]interface{}, 
 			wrapper[key] = data
 			data = wrapper
 		} else {
-			err = dataErr
+			err = errors.New("wrapData: " + dataErr.Error())
 		}
 	}
 
@@ -212,13 +212,13 @@ func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{},
 	var err error
 
 	if merge := w.context.GlobalString("merge"); merge != "" {
-		if padding, dataError := w.readData(merge); dataError == nil {
+		if padding, dataErr := w.readData(merge); dataErr == nil {
 
 			for key, val := range padding {
 				data[key] = val
 			}
 		} else {
-			err = dataError
+			err = errors.New("mergeData: " + dataErr.Error())
 		}
 	}
 
@@ -237,14 +237,14 @@ func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}
 			for _, key := range keysSlice {
 				var ok bool
 				if idData[key], ok = data[key]; !ok {
-					return data, errors.New("Could not build UUID on key: " + key)
+					return data, errors.New("injectUUID: Could not build UUID on key: " + key)
 				}
 			}
 		}
 		if doc, jsonError := json.Marshal(idData); jsonError == nil {
 			data["id"] = w.generateUUID(doc)
 		} else {
-			err = jsonError
+			err = errors.New("injectUUID: " + jsonError.Error())
 		}
 	}
 
@@ -265,7 +265,7 @@ func (w *Writer) createOutputDir() error {
 		if state, statErr := os.Stat(output); state == nil {
 			err = os.Mkdir(output, 0755)
 		} else {
-			err = statErr
+			err = errors.New("createOutputDir: " + statErr.Error())
 		}
 	}
 
@@ -289,7 +289,7 @@ func (w *Writer) publishData(data map[string]interface{}) error {
 		err = w.httpRequest(doc, id)
 		log.Println(id, string(doc))
 	} else {
-		err = jsonErr
+		err = errors.New("publishData: " + jsonErr.Error())
 	}
 
 	return err
@@ -303,7 +303,7 @@ func (w *Writer) writeFile(doc []byte, id string) error {
 		if path, pathErr := filepath.Abs(output); pathErr == nil {
 			err = ioutil.WriteFile(path+"/"+id+".json", doc, 0755)
 		} else {
-			err = pathErr
+			err = errors.New("writeFile: " + pathErr.Error())
 		}
 	}
 
