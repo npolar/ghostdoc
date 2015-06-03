@@ -3,13 +3,22 @@ package main
 import (
 	"log"
 	"os"
+	"runtime"
+	"time"
 
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ghostdoc"
 )
 
 func main() {
-	initGhostDoc().Run(os.Args)
+	var start = time.Now()
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	err := initGhostDoc().Run(os.Args)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	log.Printf("Execution took: %v", time.Now().Sub(start))
 }
 
 func initGhostDoc() *cli.App {
