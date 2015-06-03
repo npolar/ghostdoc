@@ -60,6 +60,7 @@ func (w *Writer) listen() error {
 	go func() {
 		for data := range w.DataChannel {
 			sem <- 1
+			w.WaitGroup.Add(1)
 			go func(dataMap map[string]interface{}, name string) {
 				dataMap, err = w.parseFileName(name, dataMap)
 
@@ -77,6 +78,7 @@ func (w *Writer) listen() error {
 					log.Println(err.Error())
 				}
 				<-sem
+				w.WaitGroup.Done()
 			}(data.data, data.name)
 		}
 		w.WaitGroup.Done()
@@ -94,7 +96,7 @@ func (w *Writer) applyMappers(dataMap map[string]interface{}) (map[string]interf
 		w.mergeData,
 		w.wrapData,
 		w.injectUUID,
-		w.Js.runJs}
+		w.runJs}
 
 	for _, fn := range mappers {
 		dataMap, err = fn(dataMap)
@@ -143,6 +145,15 @@ func (w *Writer) parseFileName(fname string, dataMap map[string]interface{}) (ma
 		err = errors.New("name-pattern: " + err.Error())
 	}
 
+	return dataMap, err
+}
+
+func (w *Writer) runJs(data map[string]interface{}) (map[string]interface{}, error) {
+	js := w.Js.copy()
+	dataMap, err := js.runJs(data)
+	if dataMap == nil {
+		err = errors.New("runJs: Document not exported from js function")
+	}
 	return dataMap, err
 }
 
@@ -277,7 +288,6 @@ func (w *Writer) createOutputDir() error {
 func (w *Writer) publishData(data map[string]interface{}) error {
 	var err error
 	var id string
-
 	if doc, jsonErr := json.MarshalIndent(data, "", "  "); jsonErr == nil {
 		if data["id"] != nil {
 			id = data["id"].(string)

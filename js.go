@@ -16,18 +16,31 @@ type Js struct {
 
 // NewJs factory
 func NewJs(c context.GhostContext) *Js {
-	return &Js{
+	js := &Js{
 		context: c,
 		vm:      otto.New(),
+	}
+
+	if flag := js.context.GlobalString("js"); flag != "" {
+		if err := js.runCode(flag); err != nil {
+			panic("JavaScript does not compile")
+		}
+	}
+
+	return js
+}
+
+func (js *Js) copy() *Js {
+	return &Js{
+		context: js.context,
+		vm:      js.vm.Copy(),
 	}
 }
 
 func (js *Js) runJs(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	if flag := js.context.GlobalString("js"); flag != "" {
-		if err = js.runCode(flag); err == nil {
-			data, err = js.runFunctions(data)
-		}
+		data, err = js.runFunctions(data)
 	}
 	if err != nil {
 		err = errors.New("[JavaScript Error] " + err.Error())
@@ -57,7 +70,11 @@ func (js *Js) runFunction(fnObject *otto.Object, fnName string, data map[string]
 	var response otto.Value
 	if response, err = fnObject.Call(fnName, js.makeOttoObject(data)); err == nil {
 		export, _ := response.Export()
-		data = export.(map[string]interface{})
+		if export != nil {
+			data = export.(map[string]interface{})
+		} else {
+			data = nil
+		}
 	}
 	return data, err
 }
