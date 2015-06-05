@@ -86,16 +86,13 @@ func configureFlags() []cli.Flag {
 			Usage: "Specify the key to use for the payload when wrapping",
 		},
 		cli.StringFlag{
-			Name:  "logfile, l",
+			Name:  "log-file, lf",
 			Usage: "Log to file instead of stdout",
 		},
-		cli.BoolFlag{
-			Name:  "quiet, q",
-			Usage: "Turn logging off completly off",
-		},
-		cli.BoolFlag{
-			Name:  "no-verbose, nv",
-			Usage: "Only log summary",
+		cli.StringFlag{
+			Name:  "log-level, ll",
+			Value: "DEBUG",
+			Usage: "Log level DEBUG|INFO|ERROR|OFF",
 		},
 		cli.BoolFlag{
 			Name:  "uuid, u",
