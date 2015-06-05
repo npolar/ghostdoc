@@ -94,6 +94,10 @@ func configureFlags() []cli.Flag {
 			Value: "DEBUG",
 			Usage: "Log level DEBUG|INFO|ERROR|OFF",
 		},
+		cli.StringFlag{
+			Name:  "log-mail, lm",
+			Usage: "Forward log errors to email",
+		},
 		cli.BoolFlag{
 			Name:  "uuid, u",
 			Usage: "Injects a namesaced uuid with the 'id' key",
