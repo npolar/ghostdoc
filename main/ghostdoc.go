@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		log.Error(err.Error())
 	}
-	log.Info("Execution took: ", time.Now().Sub(start))
+	log.Info("Stop, took: ", time.Now().Sub(start))
 }
 
 func initGhostDoc() *cli.App {

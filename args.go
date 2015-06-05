@@ -44,7 +44,7 @@ func (a *ArgumentHandler) hasArgs() (bool, error) {
 // ProcessArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
 	// Init logger
-	util.ConfigureLog4go(a.context)
+	util.ConfigureLogger(a.context)
 	go func() {
 		if a.hasPipe() {
 			bytes, _ := ioutil.ReadAll(os.Stdin)
@@ -65,6 +65,7 @@ func (a *ArgumentHandler) hasPipe() bool {
 
 func (a *ArgumentHandler) handleInput(argument string) {
 	if a.rawInput(argument) {
+		log.Info("Parsing raw input")
 		data := &rawFile{
 			name: a.context.GlobalString("filename"),
 			data: []byte(argument),
@@ -85,7 +86,7 @@ func (a *ArgumentHandler) handleDiskInput(argument string, recursive bool) {
 			log.Debug("[Unsupported Filetype] Skipping:", argument)
 		}
 	} else {
-		log.Error("[Input Error]", err)
+		log.Warn("[Input Error] ", err)
 	}
 }
 
@@ -95,19 +96,20 @@ func (a *ArgumentHandler) globDir(input string) {
 			a.handleDiskInput(input+"/"+item.Name(), a.context.GlobalBool("recursive"))
 		}
 	} else {
-		log.Error("[Argument Error]", err)
+		log.Error("[Argument Error] ", err)
 	}
 }
 
 func (a *ArgumentHandler) handleFileInput(input string) {
 	if raw, err := ioutil.ReadFile(input); err == nil {
+		log.Info("Parsing ", input)
 		data := &rawFile{
 			name: input,
 			data: raw,
 		}
 		a.RawChan <- data
 	} else {
-		log.Error("[File Error]", err)
+		log.Error("[File Error] ", err)
 	}
 }
 

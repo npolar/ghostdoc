@@ -52,8 +52,8 @@ func (eh *errorHook) Fire(e *log.Entry) error {
 	return err
 }
 
-// ConfigureLog4go configures log4go
-func ConfigureLog4go(c context.GhostContext) {
+// ConfigureLogger configures logging
+func ConfigureLogger(c context.GhostContext) {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
@@ -81,5 +81,5 @@ func ConfigureLog4go(c context.GhostContext) {
 	}
 
 	log.Debug("Logging configured")
-	log.Error("Email me!")
+	log.Info("Start")
 }
