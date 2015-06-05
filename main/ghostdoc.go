@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
 	"os"
 	"runtime"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ghostdoc"
 )
@@ -16,9 +16,9 @@ func main() {
 
 	err := initGhostDoc().Run(os.Args)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Error(err.Error())
 	}
-	log.Printf("Execution took: %v", time.Now().Sub(start))
+	log.Info("Execution took: ", time.Now().Sub(start))
 }
 
 func initGhostDoc() *cli.App {
@@ -85,9 +85,17 @@ func configureFlags() []cli.Flag {
 			Value: "data",
 			Usage: "Specify the key to use for the payload when wrapping",
 		},
+		cli.StringFlag{
+			Name:  "logfile, l",
+			Usage: "Log to file instead of stdout",
+		},
 		cli.BoolFlag{
 			Name:  "quiet, q",
-			Usage: "Turn off logging to stdout",
+			Usage: "Turn logging off completly off",
+		},
+		cli.BoolFlag{
+			Name:  "no-verbose, nv",
+			Usage: "Only log summary",
 		},
 		cli.BoolFlag{
 			Name:  "uuid, u",
@@ -122,5 +130,5 @@ func defineCommands() []cli.Command {
 }
 
 func processDocs(c *cli.Context) {
-	log.Println("Missing command", "See -h for usage info.")
+	log.Info("Missing command", "See -h for usage info.")
 }

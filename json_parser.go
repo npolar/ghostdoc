@@ -2,9 +2,9 @@ package ghostdoc
 
 import (
 	"encoding/json"
-	"log"
 	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ghostdoc/context"
 )
@@ -83,7 +83,7 @@ func (jsp *JSONParser) parse() {
 		}()
 
 	} else {
-		log.Println("[JSON] Argument Error:", err)
+		log.Error("[JSON] Argument Error:", err)
 	}
 }
 
@@ -98,6 +98,6 @@ func (jsp *JSONParser) parseToInterface(raw *rawFile) {
 		}
 
 	} else {
-		log.Println("[JSON] Parsing error!", err)
+		log.Error("[JSON] Parsing error!", err)
 	}
 }

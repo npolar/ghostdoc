@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"sync"
 
 	"code.google.com/p/go-uuid/uuid"
+	log "github.com/Sirupsen/logrus"
 	"github.com/npolar/ghostdoc/context"
 	"github.com/npolar/ghostdoc/util"
 )
@@ -75,7 +75,7 @@ func (w *Writer) listen() error {
 				if err == nil {
 					err = w.publishData(dataMap)
 				} else {
-					log.Println(err.Error())
+					log.Error(err.Error())
 				}
 				<-sem
 				w.WaitGroup.Done()
@@ -297,7 +297,7 @@ func (w *Writer) publishData(data map[string]interface{}) error {
 
 		err = w.writeFile(doc, id)
 		err = w.httpRequest(doc, id)
-		log.Println(id, string(doc))
+		log.Debug(id, string(doc))
 	} else {
 		err = errors.New("publishData: " + jsonErr.Error())
 	}
@@ -337,9 +337,9 @@ func (w *Writer) httpRequest(doc []byte, id string) error {
 
 				if resp, err = client.Do(req); err == nil {
 					defer resp.Body.Close()
-					log.Println("HTTP", w.context.GlobalString("http-verb"), "Response:", resp.Status)
+					log.Debug("HTTP", w.context.GlobalString("http-verb"), "Response:", resp.Status)
 				} else {
-					log.Println("HTTP Error", w.context.GlobalString("http-verb"), err.Error())
+					log.Error("HTTP Error", w.context.GlobalString("http-verb"), err.Error())
 				}
 
 			} else {

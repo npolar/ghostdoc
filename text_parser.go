@@ -1,11 +1,11 @@
 package ghostdoc
 
 import (
-	"log"
 	"regexp"
 	"strings"
 	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ghostdoc/context"
 )
@@ -91,7 +91,7 @@ func (tp *TextParser) parse() {
 		}()
 
 	} else {
-		log.Println("[Text] Argument error:", err)
+		log.Error("[Text] Argument error:", err)
 	}
 }
 

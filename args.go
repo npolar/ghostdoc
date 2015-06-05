@@ -3,11 +3,13 @@ package ghostdoc
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 
+	log "github.com/Sirupsen/logrus"
+
 	"github.com/npolar/ghostdoc/context"
+	"github.com/npolar/ghostdoc/util"
 )
 
 type rawFile struct {
@@ -41,9 +43,8 @@ func (a *ArgumentHandler) hasArgs() (bool, error) {
 
 // ProcessArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
-	if a.context.GlobalBool("quiet") {
-		log.SetOutput(ioutil.Discard)
-	}
+	// Init logger
+	util.ConfigureLog4go(a.context)
 	go func() {
 		if a.hasPipe() {
 			bytes, _ := ioutil.ReadAll(os.Stdin)
@@ -81,10 +82,10 @@ func (a *ArgumentHandler) handleDiskInput(argument string, recursive bool) {
 		} else if !a.configuration(argument) && a.supportedFile(argument) {
 			a.handleFileInput(argument)
 		} else {
-			log.Println("[Unsupported Filetype] Skipping:", argument)
+			log.Debug("[Unsupported Filetype] Skipping:", argument)
 		}
 	} else {
-		log.Println("[Input Error]", err)
+		log.Error("[Input Error]", err)
 	}
 }
 
@@ -94,7 +95,7 @@ func (a *ArgumentHandler) globDir(input string) {
 			a.handleDiskInput(input+"/"+item.Name(), a.context.GlobalBool("recursive"))
 		}
 	} else {
-		log.Println("[Argument Error]", err)
+		log.Error("[Argument Error]", err)
 	}
 }
 
@@ -106,7 +107,7 @@ func (a *ArgumentHandler) handleFileInput(input string) {
 		}
 		a.RawChan <- data
 	} else {
-		log.Println("[File Error]", err)
+		log.Error("[File Error]", err)
 	}
 }
 

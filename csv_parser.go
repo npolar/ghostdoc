@@ -3,10 +3,10 @@ package ghostdoc
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strconv"
 	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ciface"
 	"github.com/npolar/ghostdoc/context"
@@ -131,6 +131,6 @@ func (csv *CsvParser) parseToInterface(raw *rawFile) {
 	}
 
 	if err != nil {
-		log.Println("[Parsing error]", err)
+		log.Error("[Parsing error]", err)
 	}
 }
