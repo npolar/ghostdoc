@@ -44,12 +44,21 @@ func (eh *errorHook) Levels() []log.Level {
 // Fire impl
 func (eh *errorHook) Fire(e *log.Entry) error {
 	buf, _ := e.Reader()
-	message := eh.message + "\r\n" + buf.String()
-	err := smtp.SendMail("localhost:25", nil, eh.from, []string{eh.to}, []byte(message))
+	eh.message += "\n" + buf.String()
+	return nil
+}
+
+var eh *errorHook
+
+// SendErrorMail flush message to mail
+func SendErrorMail() {
+	if eh == nil {
+		return
+	}
+	err := smtp.SendMail("localhost:25", nil, eh.from, []string{eh.to}, []byte(eh.message))
 	if err != nil {
 		log.Warn(err)
 	}
-	return err
 }
 
 // ConfigureLogger configures logging
@@ -59,7 +68,8 @@ func ConfigureLogger(c context.GhostContext) {
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
 
 	if to := c.GlobalString("log-mail"); to != "" {
-		log.AddHook(newErrorHook(to))
+		eh = newErrorHook(to)
+		log.AddHook(eh)
 	}
 
 	if logfile := c.GlobalString("log-file"); logfile != "" {

@@ -8,6 +8,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ghostdoc"
+	"github.com/npolar/ghostdoc/util"
 )
 
 func main() {
@@ -18,6 +19,7 @@ func main() {
 	if err != nil {
 		log.Error(err.Error())
 	}
+	util.SendErrorMail()
 	log.Info("Stop, took: ", time.Now().Sub(start))
 }
 
