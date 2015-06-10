@@ -9,7 +9,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/npolar/ghostdoc/context"
-	"github.com/npolar/ghostdoc/util"
 )
 
 type rawFile struct {
@@ -20,15 +19,16 @@ type rawFile struct {
 // ArgumentHandler typdef
 type ArgumentHandler struct {
 	context context.GhostContext
-	RawChan chan *rawFile
-	TypeHandler
+	rawChan chan *rawFile
+	parser  *Parser
 }
 
 // NewArgumentHandler factory
-func NewArgumentHandler(c context.GhostContext, raw chan *rawFile) *ArgumentHandler {
+func NewArgumentHandler(parser *Parser, rawChan chan *rawFile) *ArgumentHandler {
 	return &ArgumentHandler{
-		context: c,
-		RawChan: raw,
+		context: parser.getContext(),
+		rawChan: rawChan,
+		parser:  parser,
 	}
 }
 
@@ -43,8 +43,6 @@ func (a *ArgumentHandler) hasArgs() (bool, error) {
 
 // ProcessArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
-	// Init logger
-	util.ConfigureLogger(a.context)
 	go func() {
 		if a.hasPipe() {
 			bytes, _ := ioutil.ReadAll(os.Stdin)
@@ -54,7 +52,7 @@ func (a *ArgumentHandler) processArguments() {
 				a.handleInput(argument)
 			}
 		}
-		close(a.RawChan)
+		close(a.rawChan)
 	}()
 }
 
@@ -64,13 +62,13 @@ func (a *ArgumentHandler) hasPipe() bool {
 }
 
 func (a *ArgumentHandler) handleInput(argument string) {
-	if a.rawInput(argument) {
+	if a.parser.isRawInput(argument) {
 		log.Info("Parsing raw input")
 		data := &rawFile{
 			name: a.context.GlobalString("filename"),
 			data: []byte(argument),
 		}
-		a.RawChan <- data
+		a.rawChan <- data
 	} else {
 		a.handleDiskInput(argument, false)
 	}
@@ -80,7 +78,7 @@ func (a *ArgumentHandler) handleDiskInput(argument string, recursive bool) {
 	if state, err := os.Stat(argument); err == nil {
 		if state.IsDir() {
 			a.globDir(argument)
-		} else if !a.configuration(argument) && a.supportedFile(argument) {
+		} else if !a.configuration(argument) && a.parser.isSupportedFile(argument) {
 			a.handleFileInput(argument)
 		} else {
 			log.Debug("[Unsupported Filetype] Skipping:", argument)
@@ -107,7 +105,7 @@ func (a *ArgumentHandler) handleFileInput(input string) {
 			name: input,
 			data: raw,
 		}
-		a.RawChan <- data
+		a.rawChan <- data
 	} else {
 		log.Error("[File Error] ", err)
 	}

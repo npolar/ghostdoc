@@ -3,24 +3,19 @@ package main
 import (
 	"os"
 	"runtime"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/npolar/ghostdoc"
-	"github.com/npolar/ghostdoc/util"
 )
 
 func main() {
-	var start = time.Now()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	err := initGhostDoc().Run(os.Args)
 	if err != nil {
 		log.Error(err.Error())
 	}
-	util.SendErrorMail()
-	log.Info("Stop, took: ", time.Now().Sub(start))
 }
 
 func initGhostDoc() *cli.App {
@@ -133,5 +128,5 @@ func defineCommands() []cli.Command {
 }
 
 func processDocs(c *cli.Context) {
-	log.Info("Missing command", "See -h for usage info.")
+	cli.ShowAppHelp(c)
 }

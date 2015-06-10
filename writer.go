@@ -32,35 +32,33 @@ type dataFile struct {
 
 // Writer type definition
 type Writer struct {
-	context     context.GhostContext
-	DataChannel chan *dataFile
-	WaitGroup   *sync.WaitGroup
-	Js          *Js
-	Validator   *Validator
+	context   context.GhostContext
+	dataChan  chan *dataFile
+	Js        *Js
+	Validator *Validator
 }
 
 // NewWriter initialises a new Writer and return a pointer to it
-func NewWriter(c context.GhostContext, dc chan *dataFile, wg *sync.WaitGroup) *Writer {
+func NewWriter(c context.GhostContext, dc chan *dataFile) *Writer {
 	return &Writer{
-		context:     c,
-		DataChannel: dc,
-		WaitGroup:   wg,
-		Js:          NewJs(c),
-		Validator:   NewValidator(c),
+		context:   c,
+		dataChan:  dc,
+		Js:        NewJs(c),
+		Validator: NewValidator(c),
 	}
 }
 
-// Listens to the DataChannel and applies the configured output modifiers and then writes
+// Listens to the dataChan and applies the configured output modifiers and then writes
 // the result to the configured output channel [stdout|files|http]
-func (w *Writer) listen() error {
+func (w *Writer) listen() (*sync.WaitGroup, error) {
 	err := w.createOutputDir()
 	sem := make(chan int, w.context.GlobalInt("concurrency"))
-
-	w.WaitGroup.Add(1)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		for data := range w.DataChannel {
+		for data := range w.dataChan {
 			sem <- 1
-			w.WaitGroup.Add(1)
+			wg.Add(1)
 			go func(dataMap map[string]interface{}, name string) {
 				dataMap, err = w.parseFileName(name, dataMap)
 
@@ -78,13 +76,13 @@ func (w *Writer) listen() error {
 					log.Error(err.Error())
 				}
 				<-sem
-				w.WaitGroup.Done()
+				wg.Done()
 			}(data.data, data.name)
 		}
-		w.WaitGroup.Done()
+		wg.Done()
 	}()
 
-	return err
+	return &wg, err
 }
 
 func (w *Writer) applyMappers(dataMap map[string]interface{}) (map[string]interface{}, error) {

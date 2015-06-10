@@ -12,9 +12,10 @@ import (
 )
 
 type errorHook struct {
-	to      string
-	from    string
-	message string
+	to       string
+	from     string
+	message  string
+	hasError bool
 }
 
 func newErrorHook(to string) *errorHook {
@@ -33,7 +34,7 @@ func newErrorHook(to string) *errorHook {
 	for k, v := range header {
 		message += fmt.Sprintf("%s: %s\r\n", k, v)
 	}
-	return &errorHook{to: to, message: message, from: from}
+	return &errorHook{to: to, message: message, from: from, hasError: false}
 }
 
 // Levels impl
@@ -52,12 +53,11 @@ var eh *errorHook
 
 // SendErrorMail flush message to mail
 func SendErrorMail() {
-	if eh == nil {
-		return
-	}
-	err := smtp.SendMail("localhost:25", nil, eh.from, []string{eh.to}, []byte(eh.message))
-	if err != nil {
-		log.Warn(err)
+	if eh != nil && eh.hasError {
+		err := smtp.SendMail("localhost:25", nil, eh.from, []string{eh.to}, []byte(eh.message))
+		if err != nil {
+			log.Warn(err)
+		}
 	}
 }
 
@@ -73,7 +73,7 @@ func ConfigureLogger(c context.GhostContext) {
 	}
 
 	if logfile := c.GlobalString("log-file"); logfile != "" {
-		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
 		if err != nil {
 			panic(err)
 		}
