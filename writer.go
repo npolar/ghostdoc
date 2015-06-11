@@ -66,13 +66,16 @@ func (w *Writer) listen() (*sync.WaitGroup, error) {
 					dataMap, err = w.applyMappers(dataMap)
 				}
 
-				if err == nil {
-					err = w.Validator.validate(dataMap)
+				if dataMap != nil {
+					if err == nil {
+						err = w.Validator.validate(dataMap)
+					}
+					if err == nil {
+						err = w.publishData(dataMap)
+					}
 				}
 
-				if err == nil {
-					err = w.publishData(dataMap)
-				} else {
+				if err != nil {
 					log.Error(err.Error())
 				}
 				<-sem
@@ -150,7 +153,7 @@ func (w *Writer) runJs(data map[string]interface{}) (map[string]interface{}, err
 	js := w.Js.copy()
 	dataMap, err := js.runJs(data)
 	if dataMap == nil {
-		err = errors.New("runJs: Document not exported from js function")
+		log.Debug("runJs: Document not exported from js function")
 	}
 	return dataMap, err
 }
