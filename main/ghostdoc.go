@@ -100,8 +100,13 @@ func configureFlags() []cli.Flag {
 			Usage: "Injects a namesaced uuid with the 'id' key",
 		},
 		cli.StringFlag{
-			Name:  "uuid-keys, uk",
+			Name:  "uuid-include, ui",
 			Usage: "Injects a namesaced uuid with the 'id' key based on a set of keys",
+		},
+		cli.StringFlag{
+			Name:  "uuid-key, uk",
+			Value: "id",
+			Usage: "uuid key name",
 		},
 		cli.StringFlag{
 			Name:  "wrapper, w",

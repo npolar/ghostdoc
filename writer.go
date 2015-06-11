@@ -254,7 +254,7 @@ func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}
 			}
 		}
 		if doc, jsonError := json.Marshal(idData); jsonError == nil {
-			data["id"] = w.generateUUID(doc)
+			data[w.context.GlobalString("uuid-key")] = w.generateUUID(doc)
 		} else {
 			err = errors.New("injectUUID: " + jsonError.Error())
 		}
