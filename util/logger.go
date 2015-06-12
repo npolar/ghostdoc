@@ -65,7 +65,7 @@ func SendErrorMail() {
 func ConfigureLogger(c context.GhostContext) {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
-	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
+	log.SetFormatter(&log.TextFormatter{FullTimestamp: true, ForceColors: true})
 
 	if to := c.GlobalString("log-mail"); to != "" {
 		eh = newErrorHook(to)
