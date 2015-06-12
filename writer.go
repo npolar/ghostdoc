@@ -239,7 +239,7 @@ func (w *Writer) mergeData(data map[string]interface{}) (map[string]interface{},
 
 func (w *Writer) injectUUID(data map[string]interface{}) (map[string]interface{}, error) {
 	var err error
-	keys := w.context.GlobalString("uuid-keys")
+	keys := w.context.GlobalString("uuid-include")
 
 	if w.context.GlobalBool("uuid") || keys != "" {
 		idData := data
