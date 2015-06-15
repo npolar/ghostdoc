@@ -10,8 +10,9 @@ import (
 
 // Js typedef
 type Js struct {
-	context context.GhostContext
-	vm      *otto.Otto
+	context   context.GhostContext
+	vm        *otto.Otto
+	functions *otto.Object
 }
 
 // NewJs factory
@@ -24,6 +25,15 @@ func NewJs(c context.GhostContext) *Js {
 	if flag := js.context.GlobalString("js"); flag != "" {
 		if err := js.runCode(flag); err != nil {
 			panic("JavaScript does not compile")
+		} else {
+			if fns, err := js.vm.Get("functions"); err == nil {
+				fnObject := fns.Object()
+				if fnObject != nil {
+					js.functions = fnObject
+				} else {
+					panic("Could not find \"functions\" Object in script")
+				}
+			}
 		}
 	}
 
@@ -31,9 +41,12 @@ func NewJs(c context.GhostContext) *Js {
 }
 
 func (js *Js) copy() *Js {
+	vm := js.vm.Copy()
+	fns, _ := vm.Get("functions")
 	return &Js{
-		context: js.context,
-		vm:      js.vm.Copy(),
+		context:   js.context,
+		vm:        js.vm.Copy(),
+		functions: fns.Object(),
 	}
 }
 
