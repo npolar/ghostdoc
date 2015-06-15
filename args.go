@@ -35,6 +35,7 @@ func NewArgumentHandler(parser *Parser, rawChan chan *rawFile) *ArgumentHandler 
 // HasArgs checks if any commandline arguments where provided
 func (a *ArgumentHandler) hasArgs() (bool, error) {
 	if len(a.context.Args()) == 0 && !a.hasPipe() {
+		// Should actually never happen...
 		return false, errors.New("[Argument Error] Called without arguments: " + a.context.Cli().App.Name + " -h for usage info.")
 	}
 
@@ -46,8 +47,10 @@ func (a *ArgumentHandler) processArguments() {
 	go func() {
 		if a.hasPipe() {
 			bytes, _ := ioutil.ReadAll(os.Stdin)
+			log.Info("Start with pipe")
 			a.handleInput(string(bytes))
 		} else {
+			log.WithFields(log.Fields{"args": a.context.Args()}).Info("Start with arguments")
 			for _, argument := range a.context.Args() {
 				a.handleInput(argument)
 			}
@@ -81,7 +84,7 @@ func (a *ArgumentHandler) handleDiskInput(argument string, recursive bool) {
 		} else if !a.configuration(argument) && a.parser.isSupportedFile(argument) {
 			a.handleFileInput(argument)
 		} else {
-			log.Warn("[Unsupported Filetype] Skipping:", argument)
+			log.Warn("[Input Error] Unsupported filetype, skipping:", argument)
 		}
 	} else {
 		log.WithFields(log.Fields{"input": argument}).Warn("[Input Error] ", err)
