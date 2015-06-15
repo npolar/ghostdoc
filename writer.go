@@ -1,12 +1,9 @@
 package ghostdoc
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -36,6 +33,7 @@ type Writer struct {
 	dataChan  chan *dataFile
 	Js        *Js
 	Validator *Validator
+	publisher *publisher
 }
 
 // NewWriter initialises a new Writer and return a pointer to it
@@ -45,6 +43,7 @@ func NewWriter(c context.GhostContext, dc chan *dataFile) *Writer {
 		dataChan:  dc,
 		Js:        NewJs(c),
 		Validator: NewValidator(c),
+		publisher: newPublisher(c),
 	}
 }
 
@@ -71,7 +70,8 @@ func (w *Writer) listen() (*sync.WaitGroup, error) {
 						err = w.Validator.validate(dataMap)
 					}
 					if err == nil {
-						err = w.publishData(dataMap)
+						w.publisher.add(dataMap)
+						err = w.writeData(dataMap)
 					}
 				}
 
@@ -82,6 +82,7 @@ func (w *Writer) listen() (*sync.WaitGroup, error) {
 				wg.Done()
 			}(data.data, data.name)
 		}
+		w.publisher.send()
 		wg.Done()
 	}()
 
@@ -284,23 +285,23 @@ func (w *Writer) createOutputDir() error {
 	return err
 }
 
-// publishData grabs/generates the id of the data and converts it to a json
-// document. Afterwards it calls writeFile and httpRequest methods
-func (w *Writer) publishData(data map[string]interface{}) error {
+// writeData grabs/generates the id of the data and converts it to a json
+// document. Afterwards it calls writeFile and logs
+func (w *Writer) writeData(data map[string]interface{}) error {
 	var err error
 	var id string
+	idKey := w.context.GlobalString("uuid-key")
 	if doc, jsonErr := json.MarshalIndent(data, "", "  "); jsonErr == nil {
-		if data["id"] != nil {
-			id = data["id"].(string)
+		if data[idKey] != nil {
+			id = data[idKey].(string)
 		} else {
 			id = w.generateUUID(doc)
 		}
 
 		err = w.writeFile(doc, id)
-		err = w.httpRequest(doc, id)
 		log.Debug(id, string(doc))
 	} else {
-		err = errors.New("publishData: " + jsonErr.Error())
+		err = errors.New("writeData: " + jsonErr.Error())
 	}
 
 	return err
@@ -318,38 +319,6 @@ func (w *Writer) writeFile(doc []byte, id string) error {
 		}
 	}
 
-	return err
-}
-
-// httpRequest performs the request defined in http-verb against
-// the configured address. Default operation is POST
-func (w *Writer) httpRequest(doc []byte, id string) error {
-	var err error
-
-	if addr := w.context.GlobalString("address"); addr != "" {
-		if uri, uriErr := url.Parse(addr); uriErr == nil {
-			client := &http.Client{}
-
-			byteReader := bytes.NewReader(doc)
-
-			if req, httpErr := http.NewRequest(w.context.GlobalString("http-verb"), uri.String(), byteReader); httpErr == nil {
-				req.Header.Set("Content-Type", "application/json")
-				var resp *http.Response
-
-				if resp, err = client.Do(req); err == nil {
-					defer resp.Body.Close()
-					log.Debug("HTTP", w.context.GlobalString("http-verb"), "Response:", resp.Status)
-				} else {
-					log.Error("HTTP Error", w.context.GlobalString("http-verb"), err.Error())
-				}
-
-			} else {
-				err = httpErr
-			}
-		} else {
-			err = uriErr
-		}
-	}
 	return err
 }
 

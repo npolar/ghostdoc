@@ -40,6 +40,11 @@ func configureFlags() []cli.Flag {
 			Value: 2,
 			Usage: "Specify the number of concurrent operations",
 		},
+		cli.IntFlag{
+			Name:  "bulk, b",
+			Value: 500,
+			Usage: "Bulk send documents",
+		},
 		cli.StringFlag{
 			Name:  "exclude, e",
 			Usage: "Specify keys (before mapping) to exclude in the output",
