@@ -81,10 +81,10 @@ func (a *ArgumentHandler) handleDiskInput(argument string, recursive bool) {
 		} else if !a.configuration(argument) && a.parser.isSupportedFile(argument) {
 			a.handleFileInput(argument)
 		} else {
-			log.Debug("[Unsupported Filetype] Skipping:", argument)
+			log.Warn("[Unsupported Filetype] Skipping:", argument)
 		}
 	} else {
-		log.Warn("[Input Error] ", err)
+		log.WithFields(log.Fields{"input": argument}).Warn("[Input Error] ", err)
 	}
 }
 
@@ -94,7 +94,7 @@ func (a *ArgumentHandler) globDir(input string) {
 			a.handleDiskInput(input+"/"+item.Name(), a.context.GlobalBool("recursive"))
 		}
 	} else {
-		log.Error("[Argument Error] ", err)
+		log.WithFields(log.Fields{"input": input}).Error("[Argument Error] ", err)
 	}
 }
 
@@ -107,7 +107,7 @@ func (a *ArgumentHandler) handleFileInput(input string) {
 		}
 		a.rawChan <- data
 	} else {
-		log.Error("[File Error] ", err)
+		log.WithFields(log.Fields{"input": input}).Error("[File Error] ", err)
 	}
 }
 
