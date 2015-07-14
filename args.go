@@ -45,8 +45,8 @@ func (a *ArgumentHandler) hasArgs() (bool, error) {
 // ProcessArguments loops through all arguments and calls input handling
 func (a *ArgumentHandler) processArguments() {
 	go func() {
-		if a.hasPipe() {
-			bytes, _ := ioutil.ReadAll(os.Stdin)
+		bytes, _ := ioutil.ReadAll(os.Stdin)
+		if bytes != nil && len(bytes) > 0 {
 			log.Info("Start with pipe")
 			a.handleInput(string(bytes))
 		} else {
@@ -60,8 +60,8 @@ func (a *ArgumentHandler) processArguments() {
 }
 
 func (a *ArgumentHandler) hasPipe() bool {
-	fi, err := os.Stdin.Stat()
-	return !(fi.Mode()&os.ModeNamedPipe == 0) && err == nil
+	fi, _ := os.Stdin.Stat()
+	return (fi.Mode()&os.ModeCharDevice == 0)
 }
 
 func (a *ArgumentHandler) handleInput(argument string) {

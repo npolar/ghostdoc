@@ -16,6 +16,7 @@ func main() {
 	if err != nil {
 		log.Error(err.Error())
 	}
+	log.WithField("args", os.Args).Debug("Ran with args:")
 }
 
 func initGhostDoc() *cli.App {
